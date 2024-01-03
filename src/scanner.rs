@@ -34,7 +34,7 @@ impl<'a> Scanner<'a> {
         };
 
         for token in tokens {
-            println!("{}", token.to_string());
+            println!("{} in line {}", token.to_string(), token.line);
         }
     }
 
@@ -63,7 +63,12 @@ impl<'a> Scanner<'a> {
             };
         }
 
-        tokens.push(Token::new(TokenType::Eof, String::from(""), None, 1));
+        tokens.push(Token::new(
+            TokenType::Eof,
+            String::from(""),
+            None,
+            self.line,
+        ));
 
         return Ok(tokens);
     }
@@ -74,52 +79,69 @@ impl<'a> Scanner<'a> {
                 TokenType::LeftParen,
                 String::from(""),
                 None,
-                1,
+                self.line,
             ))),
             ')' => Result::Ok(Some(Token::new(
                 TokenType::RightParen,
                 String::from(""),
                 None,
-                1,
+                self.line,
             ))),
             '{' => Result::Ok(Some(Token::new(
                 TokenType::LeftBrace,
                 String::from(""),
                 None,
-                1,
+                self.line,
             ))),
             '}' => Result::Ok(Some(Token::new(
                 TokenType::RightBrace,
                 String::from(""),
                 None,
-                1,
+                self.line,
             ))),
             ',' => Result::Ok(Some(Token::new(
                 TokenType::Comma,
                 String::from(""),
                 None,
-                1,
+                self.line,
             ))),
-            '.' => Result::Ok(Some(Token::new(TokenType::Dot, String::from(""), None, 1))),
+            '.' => Result::Ok(Some(Token::new(
+                TokenType::Dot,
+                String::from(""),
+                None,
+                self.line,
+            ))),
             '-' => Result::Ok(Some(Token::new(
                 TokenType::Minus,
                 String::from(""),
                 None,
-                1,
+                self.line,
             ))),
-            '+' => Result::Ok(Some(Token::new(TokenType::Plus, String::from(""), None, 1))),
+            '+' => Result::Ok(Some(Token::new(
+                TokenType::Plus,
+                String::from(""),
+                None,
+                self.line,
+            ))),
             ';' => Result::Ok(Some(Token::new(
                 TokenType::Semicolon,
                 String::from(""),
                 None,
-                1,
+                self.line,
             ))),
-            '*' => Result::Ok(Some(Token::new(TokenType::Star, String::from(""), None, 1))),
+            '*' => Result::Ok(Some(Token::new(
+                TokenType::Star,
+                String::from(""),
+                None,
+                self.line,
+            ))),
+            '"' => self.string(),
+            '0'..='9' => self.number(next_char),
             '/' => self.peek_for_comment_or_slash(),
-            '!' => self.bang_or_ne(),
-            '=' => self.eq_or_eqeq(),
-            '<' => self.le_or_leeq(),
-            '>' => self.gr_or_greq(),
+            '!' => self.decide_on('=', TokenType::Bang, TokenType::BangEqual),
+            '=' => self.decide_on('=', TokenType::Equal, TokenType::EqualEqual),
+            '<' => self.decide_on('=', TokenType::Less, TokenType::LessEqual),
+            '>' => self.decide_on('=', TokenType::Greater, TokenType::GreaterEqual),
             ' ' => Ok(None),
             '\r' => Ok(None),
             '\t' => Ok(None),
@@ -131,83 +153,85 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn bang_or_ne(&mut self) -> Result<Option<Token>, &'static str> {
-        match self.source.peek() {
-            Some(ch) if *ch == '=' => {
-                self.source.next();
+    fn string(&mut self) -> Result<Option<Token>, &'static str> {
+        let mut literal = String::from("");
 
-                Result::Ok(Some(Token::new(
-                    TokenType::BangEqual,
-                    String::from(""),
-                    None,
-                    self.line,
-                )))
-            }
-            _ => Result::Ok(Some(Token::new(
-                TokenType::Bang,
-                String::from(""),
-                None,
-                self.line,
-            ))),
+        loop {
+            let next: Option<char> = self.source.next();
+
+            match next {
+                Some(ch) => {
+                    if ch == '"' {
+                        break;
+                    }
+                    if ch == '\n' {
+                        self.line += 1;
+                    }
+
+                    literal.push(ch);
+                }
+                None => return Result::Err("Unterminalted string iteral."),
+            };
         }
+
+        Ok(Some(Token::new(
+            TokenType::String(literal.clone()),
+            String::from(""),
+            Some(literal),
+            self.line,
+        )))
     }
 
-    fn eq_or_eqeq(&mut self) -> Result<Option<Token>, &'static str> {
-        match self.source.peek() {
-            Some(ch) if *ch == '=' => {
-                self.source.next();
+    fn number(&mut self, next_char: char) -> Result<Option<Token>, &'static str> {
+        let mut literal = String::from(next_char);
+        let mut had_decimal_point = false;
 
-                Result::Ok(Some(Token::new(
-                    TokenType::EqualEqual,
-                    String::from(""),
-                    None,
-                    self.line,
-                )))
-            }
-            _ => Result::Ok(Some(Token::new(
-                TokenType::Equal,
-                String::from(""),
-                None,
-                self.line,
-            ))),
+        loop {
+            let next = self.source.peek();
+
+            match next {
+                Some(ch) if ('0'..='9').contains(ch) => {
+                    literal.push(*ch);
+                    self.source.next();
+                }
+                Some(ch) if *ch == '.' && !had_decimal_point => {
+                    had_decimal_point = true;
+                    literal.push(*ch);
+                    self.source.next();
+                }
+                _ => {
+                    break;
+                }
+            };
         }
+
+        Ok(Some(Token::new(
+            TokenType::Number(literal.parse::<f64>().unwrap()),
+            String::from(""),
+            Some(literal),
+            self.line,
+        )))
     }
 
-    fn le_or_leeq(&mut self) -> Result<Option<Token>, &'static str> {
+    fn decide_on(
+        &mut self,
+        factor: char,
+        token_type_a: TokenType,
+        token_type_b: TokenType,
+    ) -> Result<Option<Token>, &'static str> {
         match self.source.peek() {
-            Some(ch) if *ch == '=' => {
+            Some(ch) if *ch == factor => {
                 self.source.next();
 
                 Result::Ok(Some(Token::new(
-                    TokenType::LessEqual,
+                    token_type_b,
                     String::from(""),
                     None,
                     self.line,
                 )))
             }
             _ => Result::Ok(Some(Token::new(
-                TokenType::Less,
-                String::from(""),
-                None,
-                self.line,
-            ))),
-        }
-    }
-
-    fn gr_or_greq(&mut self) -> Result<Option<Token>, &'static str> {
-        match self.source.peek() {
-            Some(ch) if *ch == '=' => {
-                self.source.next();
-                
-                Result::Ok(Some(Token::new(
-                    TokenType::GreaterEqual,
-                    String::from(""),
-                    None,
-                    self.line,
-                )))
-            }
-            _ => Result::Ok(Some(Token::new(
-                TokenType::Greater,
+                token_type_a,
                 String::from(""),
                 None,
                 self.line,
@@ -217,14 +241,21 @@ impl<'a> Scanner<'a> {
 
     fn peek_for_comment_or_slash(&mut self) -> Result<Option<Token>, &'static str> {
         match self.source.peek() {
-            Some(ch) if *ch == '/' => loop {
-                let consumed = self.source.next();
-                match consumed {
-                    Some(ch) if ch == '\n' => return Ok(None),
-                    None => return Ok(None),
-                    _ => {}
+            Some(ch) if *ch == '/' => {
+                self.source.next(); // Consume second slash
+
+                loop {
+                    let next_char = self.source.peek();
+
+                    match next_char {
+                        Some(ch) if *ch == '\n' => return Ok(None),
+                        None => return Ok(None),
+                        _ => {
+                            self.source.next();
+                        }
+                    }
                 }
-            },
+            }
             _ => Result::Ok(Some(Token::new(
                 TokenType::Slash,
                 String::from(""),

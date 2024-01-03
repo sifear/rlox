@@ -27,8 +27,8 @@ pub enum TokenType {
 
     // Literals
     Identifier,
-    String,
-    Number,
+    String(String),
+    Number(f64),
 
     // Keywords
     And,
@@ -77,7 +77,7 @@ impl fmt::Display for TokenType {
             TokenType::LessEqual => write!(f, "LessEqual"),
             TokenType::Minus => write!(f, "Minus"),
             TokenType::Nil => write!(f, "Nil"),
-            TokenType::Number => write!(f, "Number"),
+            TokenType::Number(num) => write!(f, "Number {}", num.to_string()),
             TokenType::Or => write!(f, "Or"),
             TokenType::Plus => write!(f, "Plus"),
             TokenType::Print => write!(f, "Print"),
@@ -87,7 +87,7 @@ impl fmt::Display for TokenType {
             TokenType::Semicolon => write!(f, "Semicolon"),
             TokenType::Slash => write!(f, "Slash"),
             TokenType::Star => write!(f, "Star"),
-            TokenType::String => write!(f, "String"),
+            TokenType::String(string) => write!(f, "String literal: {}", string),
             TokenType::Super => write!(f, "Super"),
             TokenType::This => write!(f, "This"),
             TokenType::True => write!(f, "True"),
@@ -102,7 +102,7 @@ pub struct Token {
     token_type: TokenType,
     lexeme: String,
     literal: Option<String>,
-    line: u32,
+    pub line: u32,
 }
 
 impl Token {
@@ -118,10 +118,15 @@ impl Token {
     pub fn to_string(&self) -> String {
         let mut as_string = self.token_type.to_string();
         as_string.push_str(&self.lexeme);
-        as_string.push_str(match &self.literal {
-            Some(lit) => lit,
-            None => &"",
-        });
+
+        match &self.literal {
+            Some(lit) => {
+                let a = format!(" '{}'", lit);
+
+                as_string.push_str(&a);
+            }
+            None => {},
+        };
 
         as_string
     }
