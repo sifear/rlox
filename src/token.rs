@@ -1,5 +1,6 @@
 use core::fmt;
 
+#[derive(Clone)]
 #[derive(Debug)]
 pub enum TokenType {
     // Single-character tokens

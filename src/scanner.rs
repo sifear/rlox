@@ -1,4 +1,6 @@
 use core::iter::Peekable;
+use std::collections::hash_map;
+use std::collections::HashMap;
 use std::process::exit;
 use std::str::Chars;
 
@@ -137,6 +139,7 @@ impl<'a> Scanner<'a> {
             ))),
             '"' => self.string(),
             '0'..='9' => self.number(next_char),
+            'a'..='z' | 'A'..='Z' => self.identifier(next_char),
             '/' => self.peek_for_comment_or_slash(),
             '!' => self.decide_on('=', TokenType::Bang, TokenType::BangEqual),
             '=' => self.decide_on('=', TokenType::Equal, TokenType::EqualEqual),
@@ -150,6 +153,70 @@ impl<'a> Scanner<'a> {
                 Ok(None)
             }
             _ => Result::Err("Invalid character in source"),
+        }
+    }
+
+    fn identifier(&mut self, next_char: char) -> Result<Option<Token>, &'static str> {
+        let mut identifier_name = String::from(next_char);
+
+        loop {
+            let next = self.source.peek();
+
+            match next {
+                Some(ch)
+                    if ('a'..'z').contains(ch)
+                        || ('A'..'Z').contains(ch)
+                        || ('0'..'9').contains(ch)
+                        || *ch == '_' =>
+                {
+                    identifier_name.push(*ch);
+                    self.source.next();
+                }
+                _ => break,
+            }
+        }
+
+        if let Some(token_type) = self.reserved_token_type(&identifier_name) {
+            Ok(Some(Token::new(
+                token_type,
+                String::from(""),
+                None,
+                self.line,
+            )))
+        } else {
+            Ok(Some(Token::new(
+                TokenType::Identifier,
+                String::from(""),
+                None,
+                self.line,
+            )))
+        }
+    }
+
+    fn reserved_token_type(&self, identifier_name: &String) -> Option<TokenType> {
+        let a = identifier_name.as_str();
+
+        let mut map = HashMap::new();
+        map.insert("and", TokenType::And);
+        map.insert("class", TokenType::Class);
+        map.insert("else", TokenType::Else);
+        map.insert("false", TokenType::False);
+        map.insert("for", TokenType::For);
+        map.insert("fun", TokenType::Fun);
+        map.insert("if", TokenType::If);
+        map.insert("nil", TokenType::Nil);
+        map.insert("or", TokenType::Or);
+        map.insert("print", TokenType::Print);
+        map.insert("return", TokenType::Return);
+        map.insert("super", TokenType::Super);
+        map.insert("this", TokenType::This);
+        map.insert("true", TokenType::True);
+        map.insert("var", TokenType::Var);
+        map.insert("while", TokenType::While);
+
+        match map.get(a) {
+            Some(tt) => Some(tt.clone()),
+            None => None,
         }
     }
 
