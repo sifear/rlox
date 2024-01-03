@@ -186,18 +186,33 @@ impl<'a> Scanner<'a> {
         let mut literal = String::from(next_char);
         let mut had_decimal_point = false;
 
+        let mut decimal_iterator = self.source.clone();
+
         loop {
             let next = self.source.peek();
+            decimal_iterator.peek();
 
             match next {
                 Some(ch) if ('0'..='9').contains(ch) => {
                     literal.push(*ch);
+
                     self.source.next();
+                    decimal_iterator.next();
                 }
                 Some(ch) if *ch == '.' && !had_decimal_point => {
-                    had_decimal_point = true;
-                    literal.push(*ch);
-                    self.source.next();
+                    decimal_iterator.next(); // Consume decimal point
+
+                    let after_decimal: Option<char> = decimal_iterator.next();
+                    match after_decimal {
+                        Some(ach) if ('0'..='9').contains(&ach) => {
+                            had_decimal_point = true;
+                            literal.push(*ch);
+                            self.source.next(); // Consume decimal point on outer iterator
+                        }
+                        _ => {
+                            break;
+                        }
+                    }
                 }
                 _ => {
                     break;
