@@ -101,13 +101,13 @@ impl fmt::Display for TokenType {
 #[derive(Debug)]
 pub struct Token {
     token_type: TokenType,
-    lexeme: String,
+    lexeme: Option<String>,
     literal: Option<String>,
     pub line: u32,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, literal: Option<String>, line: u32) -> Token {
+    pub fn new(token_type: TokenType, lexeme: Option<String>, literal: Option<String>, line: u32) -> Token {
         Token {
             token_type,
             lexeme,
@@ -118,7 +118,6 @@ impl Token {
 
     pub fn to_string(&self) -> String {
         let mut as_string = self.token_type.to_string();
-        as_string.push_str(&self.lexeme);
 
         match &self.literal {
             Some(lit) => {
@@ -130,5 +129,11 @@ impl Token {
         };
 
         as_string
+    }
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.token_type)
     }
 }
