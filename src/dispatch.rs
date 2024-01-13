@@ -1,8 +1,6 @@
 use std::fs::File;
 use std::io::{self, Read};
 
-use crate::scanner::Scanner;
-
 pub fn run_file(path: &String) {
     let mut buf = vec![];
     let mut file = File::open(path).unwrap();
@@ -10,7 +8,7 @@ pub fn run_file(path: &String) {
 
     let source = String::from_utf8(buf).unwrap();
 
-    let mut scanner = Scanner::new(&source);
+    let mut scanner = crate::scanner::Scanner::new(&source);
     scanner.run();
 }
 
@@ -24,7 +22,7 @@ pub fn run_prompt() {
 
         println!("line to run: {}", buf);
 
-        let mut scanner = Scanner::new(&buf);
+        let mut scanner = crate::scanner::Scanner::new(&buf);
         scanner.run();
     }
 }

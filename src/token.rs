@@ -121,7 +121,7 @@ impl Token {
 
         match &self.literal {
             Some(lit) => {
-                let a = format!(" '{}'", lit);
+                let a = format!("<{}>", lit);
 
                 as_string.push_str(&a);
             }
@@ -132,7 +132,7 @@ impl Token {
     }
 }
 
-impl fmt::Display for Token {
+impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.token_type)
     }

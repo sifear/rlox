@@ -1,16 +1,15 @@
-pub mod dispatch;
-pub mod scanner;
-pub mod token;
-pub mod parser;
-
 use dispatch::{run_file, run_prompt};
 use parser::test;
-use std::{env::args, process::exit};
 
-use crate::scanner::Scanner;
+mod token;
+mod scanner;
+mod parser;
+mod dispatch;
 
 fn main() {
     test();
+    // let args = args().collect::<Vec<String>>();
+    // println!("{:?}", args);
     // let args = args().collect::<Vec<String>>();
     // println!("{:?}", args);
 
