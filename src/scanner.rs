@@ -67,7 +67,7 @@ impl<'a> Scanner<'a> {
 
         tokens.push(Token::new(
             TokenType::Eof,
-            String::from(""),
+            None,
             None,
             self.line,
         ));
@@ -79,61 +79,61 @@ impl<'a> Scanner<'a> {
         match next_char {
             '(' => Result::Ok(Some(Token::new(
                 TokenType::LeftParen,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
             ')' => Result::Ok(Some(Token::new(
                 TokenType::RightParen,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
             '{' => Result::Ok(Some(Token::new(
                 TokenType::LeftBrace,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
             '}' => Result::Ok(Some(Token::new(
                 TokenType::RightBrace,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
             ',' => Result::Ok(Some(Token::new(
                 TokenType::Comma,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
             '.' => Result::Ok(Some(Token::new(
                 TokenType::Dot,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
             '-' => Result::Ok(Some(Token::new(
                 TokenType::Minus,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
             '+' => Result::Ok(Some(Token::new(
                 TokenType::Plus,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
             ';' => Result::Ok(Some(Token::new(
                 TokenType::Semicolon,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
             '*' => Result::Ok(Some(Token::new(
                 TokenType::Star,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
@@ -179,14 +179,14 @@ impl<'a> Scanner<'a> {
         if let Some(token_type) = self.reserved_token_type(&identifier_name) {
             Ok(Some(Token::new(
                 token_type,
-                String::from(""),
+                None,
                 None,
                 self.line,
             )))
         } else {
             Ok(Some(Token::new(
                 TokenType::Identifier,
-                String::from(""),
+                None,
                 None,
                 self.line,
             )))
@@ -243,7 +243,7 @@ impl<'a> Scanner<'a> {
 
         Ok(Some(Token::new(
             TokenType::String(literal.clone()),
-            String::from(""),
+            None,
             Some(literal),
             self.line,
         )))
@@ -289,7 +289,7 @@ impl<'a> Scanner<'a> {
 
         Ok(Some(Token::new(
             TokenType::Number(literal.parse::<f64>().unwrap()),
-            String::from(""),
+            None,
             Some(literal),
             self.line,
         )))
@@ -307,14 +307,14 @@ impl<'a> Scanner<'a> {
 
                 Result::Ok(Some(Token::new(
                     token_type_b,
-                    String::from(""),
+                    None,
                     None,
                     self.line,
                 )))
             }
             _ => Result::Ok(Some(Token::new(
                 token_type_a,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
@@ -340,7 +340,7 @@ impl<'a> Scanner<'a> {
             }
             _ => Result::Ok(Some(Token::new(
                 TokenType::Slash,
-                String::from(""),
+                None,
                 None,
                 self.line,
             ))),
