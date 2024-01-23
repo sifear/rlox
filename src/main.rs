@@ -1,5 +1,5 @@
 use dispatch::{run_file, run_prompt};
-use parser::test;
+use parser::{expression::test, test2};
 
 mod token;
 mod scanner;
@@ -7,7 +7,7 @@ mod parser;
 mod dispatch;
 
 fn main() {
-    test();
+    test2();
     // let args = args().collect::<Vec<String>>();
     // println!("{:?}", args);
     // let args = args().collect::<Vec<String>>();

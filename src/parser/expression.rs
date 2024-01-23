@@ -1,24 +1,38 @@
+use crate::token::{self, Token, TokenType};
 use core::fmt;
-use crate::token::{Token, TokenType};
 
-trait Expr {
+pub trait Expr {
     fn to_string(&self) -> String;
 }
 
-struct Literal {
-    value: String,
+pub struct Literal {
+    pub literal_type: TokenType,
 }
-struct Unary {
+
+pub struct Unary {
     op: Token,
     right: Box<dyn Expr>,
 }
-struct Binary {
+pub struct Binary {
     left: Box<dyn Expr>,
-    op: Token,
+    op:Token,
     right: Box<dyn Expr>,
 }
-struct Grouping {
-    expr: Box<dyn Expr>,
+
+impl Unary {
+    pub fn new(right: Box<dyn Expr>, op: Token) -> Unary {
+        Unary { right, op }
+    }
+}
+
+impl Binary {
+    pub fn new(left: Box<dyn Expr>, right: Box<dyn Expr>, op: Token) -> Binary {
+        Binary { left, right, op }
+    }
+}
+
+pub struct Grouping {
+    pub expr: Box<dyn Expr>,
 }
 
 impl fmt::Display for dyn Expr {
@@ -29,19 +43,22 @@ impl fmt::Display for dyn Expr {
 
 impl Expr for Literal {
     fn to_string(&self) -> String {
-        format!("({})", self.value)
+        format!("({})", self.literal_type)
     }
 }
+
 impl Expr for Unary {
     fn to_string(&self) -> String {
         format!("({} {})", self.op, self.right)
     }
 }
+
 impl Expr for Binary {
     fn to_string(&self) -> String {
         format!("({} {} {})", self.op, self.left, self.right)
     }
 }
+
 impl Expr for Grouping {
     fn to_string(&self) -> String {
         format!("({})", self.expr)
@@ -49,8 +66,10 @@ impl Expr for Grouping {
 }
 
 pub fn test() {
+    let token_type =  TokenType::String(String::from("test"));
+
     let literal = Literal {
-        value: String::from("test"),
+        literal_type: token_type,
     };
     let unary_expr = Unary {
         op: Token::new(TokenType::Minus, None, None, 1),

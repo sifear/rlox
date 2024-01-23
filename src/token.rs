@@ -1,5 +1,6 @@
 use core::fmt;
 
+#[derive(PartialEq)]
 #[derive(Clone)]
 #[derive(Debug)]
 pub enum TokenType {
@@ -99,10 +100,11 @@ impl fmt::Display for TokenType {
 }
 
 #[derive(Debug)]
+#[derive(Clone)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: Option<String>,
-    literal: Option<String>,
+    pub token_type: TokenType,
+    pub lexeme: Option<String>,
+    pub literal: Option<String>,
     pub line: u32,
 }
 
