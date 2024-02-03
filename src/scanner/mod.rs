@@ -241,7 +241,7 @@ impl<'a> Scanner<'a> {
         }
 
         Ok(Some(Token::new(
-            TokenType::String(literal.clone()),
+            TokenType::String,
             None,
             Some(literal),
             self.line,
@@ -287,7 +287,7 @@ impl<'a> Scanner<'a> {
         }
 
         Ok(Some(Token::new(
-            TokenType::Number(literal.parse::<f64>().unwrap()),
+            TokenType::Number,
             None,
             Some(literal),
             self.line,

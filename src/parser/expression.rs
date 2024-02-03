@@ -1,8 +1,14 @@
 use crate::token::{self, Token, TokenType};
+use core::fmt::Debug;
 use core::fmt;
-
 pub trait Expr {
     fn to_string(&self) -> String;
+}
+
+impl Debug for dyn Expr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Expression {{{}}}", self.to_string())
+    }
 }
 
 pub struct Literal {
@@ -31,8 +37,15 @@ impl Binary {
     }
 }
 
+impl Grouping {
+    pub fn push_expr(&mut self, expr:  Box<dyn Expr>) {
+        self.exprs.push(expr)
+    }
+}
+
+#[derive(Debug)]
 pub struct Grouping {
-    pub expr: Box<dyn Expr>,
+    pub exprs: Vec::<Box<dyn Expr>>,
 }
 
 impl fmt::Display for dyn Expr {
@@ -61,12 +74,19 @@ impl Expr for Binary {
 
 impl Expr for Grouping {
     fn to_string(&self) -> String {
-        format!("({})", self.expr)
+        let mut cucc = String::from("(");
+        for expr in self.exprs.iter() {
+            cucc.push('(');
+            cucc.push_str(&expr.to_string());
+            cucc.push(')');
+        }
+
+        return cucc;
     }
 }
 
 pub fn test() {
-    let token_type =  TokenType::String(String::from("test"));
+    let token_type =  TokenType::String;
 
     let literal = Literal {
         literal_type: token_type,

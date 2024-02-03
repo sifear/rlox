@@ -29,8 +29,8 @@ pub enum TokenType {
 
     // Literals
     Identifier,
-    String(String),
-    Number(f64),
+    String,
+    Number,
 
     // Keywords
     And,
@@ -79,7 +79,7 @@ impl fmt::Display for TokenType {
             TokenType::LessEqual => write!(f, "LessEqual"),
             TokenType::Minus => write!(f, "Minus"),
             TokenType::Nil => write!(f, "Nil"),
-            TokenType::Number(num) => write!(f, "Number {}", num.to_string()),
+            TokenType::Number => write!(f, "Number"),
             TokenType::Or => write!(f, "Or"),
             TokenType::Plus => write!(f, "Plus"),
             TokenType::Print => write!(f, "Print"),
@@ -89,7 +89,7 @@ impl fmt::Display for TokenType {
             TokenType::Semicolon => write!(f, "Semicolon"),
             TokenType::Slash => write!(f, "Slash"),
             TokenType::Star => write!(f, "Star"),
-            TokenType::String(string) => write!(f, "String literal: {}", string),
+            TokenType::String => write!(f, "String literal"),
             TokenType::Super => write!(f, "Super"),
             TokenType::This => write!(f, "This"),
             TokenType::True => write!(f, "True"),
