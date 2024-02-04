@@ -1,15 +1,16 @@
 use core::panic;
 use std::io::{Error, ErrorKind};
 
-use crate::token::{Token, TokenType};
+use crate::token::{self, Token, TokenType};
 use expression::{Binary, Expr, Unary};
 
-use self::expression::{Grouping, Literal};
+use self::expression::{Empty, Grouping, Literal, Ternery};
 use self::parser_error::{ParserError, ParserErrorType};
 
 pub mod expression;
 pub mod parser_error;
 
+// expression     → equality ( "?" exression ":" expression )*
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term           → factor ( ( "-" | "+" ) factor )* ;
@@ -21,20 +22,28 @@ pub mod parser_error;
 
 pub fn test2() {
     let mut tokens = vec![];
-    tokens.push(Token::new(TokenType::LeftParen, None, None, 1));
+    // tokens.push(Token::new(TokenType::LeftParen, None, None, 1));
+    // tokens.push(Token::new(TokenType::Number, None, None, 1));
+    // tokens.push(Token::new(TokenType::Plus, None, None, 1));
+    // tokens.push(Token::new(TokenType::LeftParen, None, None, 1));
+    // tokens.push(Token::new(TokenType::Star, None, None, 1));
+    // tokens.push(Token::new(TokenType::Minus, None, None, 1));
+    // tokens.push(Token::new(TokenType::Number, None, None, 1));
+    // tokens.push(Token::new(TokenType::RightParen, None, None, 1));
+    // tokens.push(Token::new(TokenType::Comma, None, None, 1));
+    // tokens.push(Token::new(TokenType::String, None, None, 1));
+    // tokens.push(Token::new(TokenType::RightParen, None, None, 1));
 
     tokens.push(Token::new(TokenType::Number, None, None, 1));
-    tokens.push(Token::new(TokenType::Plus, None, None, 1));
-    tokens.push(Token::new(TokenType::LeftParen, None, None, 1));
+    tokens.push(Token::new(TokenType::Less, None, None, 1));
+    tokens.push(Token::new(TokenType::Number, None, None, 1));
+    tokens.push(Token::new(TokenType::QuestionMark, None, None, 1));
+    tokens.push(Token::new(TokenType::String, None, None, 1));
+    tokens.push(Token::new(TokenType::Colon, None, None, 1));
+    tokens.push(Token::new(TokenType::Number, None, None, 1));
     tokens.push(Token::new(TokenType::Minus, None, None, 1));
     tokens.push(Token::new(TokenType::Number, None, None, 1));
-    tokens.push(Token::new(TokenType::RightParen, None, None, 1));
 
-    tokens.push(Token::new(TokenType::Comma, None, None, 1));
-
-    tokens.push(Token::new(TokenType::String, None, None, 1));
-
-    tokens.push(Token::new(TokenType::RightParen, None, None, 1));
 
     let mut a = Parser::new(&tokens);
     let ast = a.parse();
@@ -60,7 +69,50 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> Result<Box<dyn Expr>, ParserError> {
-        self.equality()
+        let mut errorous_binary_pos = None;
+        match self._match_(&[TokenType::Slash, TokenType::Star]) {
+            Some(token) => {
+                errorous_binary_pos = Some(self.current);
+                println!("Binary operand is missng left hand side at line {}", 0)
+                // return Err(ParserError::new(ParserErrorType::BinaryMissingLHS, 0))
+            }
+            None => {}
+        }
+
+        let expr = self.equality();
+
+        match errorous_binary_pos {
+            Some(pos) => return Result::Ok(Box::new(Empty {})),
+            None => {}
+        };
+
+        match self._match_(&[TokenType::QuestionMark]) {
+            Some(_) => {
+                let true_arm = self.expression();
+                if true_arm.is_err() {
+                    return Err(ParserError::new(ParserErrorType::PredicateMissingTrue, 0));
+                }
+                let res = self.consume(&TokenType::Colon);
+                if res.is_err() {
+                    return Err(ParserError::new(ParserErrorType::PredicateMissingFalse, 0));
+                }
+                let false_arm = self.expression();
+                if false_arm.is_err() {
+                    return Err(ParserError::new(ParserErrorType::ExpressionExpected, 0));
+                }
+
+                let ternery = Result::<Box<dyn Expr>, ParserError>::Ok(Box::new(Ternery {
+                    predicate: expr.unwrap(),
+                    true_arm: true_arm.unwrap(),
+                    false_arm: false_arm.unwrap(),
+                }));
+
+                return ternery;
+            }
+            None => {}
+        };
+
+        expr
     }
 
     fn equality(&mut self) -> Result<Box<dyn Expr>, ParserError> {
@@ -131,7 +183,6 @@ impl<'a> Parser<'a> {
         loop {
             match self._match_(&[TokenType::Minus, TokenType::Plus]) {
                 Some(token) => {
-                    println!("minus pklus found {}", token.token_type);
                     let right = self.term();
                     if right.is_err() {
                         return right;
@@ -232,7 +283,6 @@ impl<'a> Parser<'a> {
     fn grouping(&mut self) -> Result<Box<Grouping>, ParserError> {
         match self._match_(&[TokenType::LeftParen]) {
             Some(a) => {
-                println!("left parent found {}", self.current);
                 let mut grouping = Grouping { exprs: vec![] };
                 let expr = self.expression();
                 if expr.is_err() {

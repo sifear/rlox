@@ -14,10 +14,12 @@ pub enum TokenType {
     Minus,
     Plus,
     Semicolon,
+    Colon,
     Slash,
     Star,
 
     // One or two character tokens
+    QuestionMark,
     Bang,
     BangEqual,
     Equal,
@@ -95,6 +97,8 @@ impl fmt::Display for TokenType {
             TokenType::True => write!(f, "True"),
             TokenType::Var => write!(f, "Var"),
             TokenType::While => write!(f, "While"),
+            TokenType::QuestionMark => write!(f, "QuestionMark"),
+            TokenType::Colon => write!(f, "Colon"),
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::token::{self, Token, TokenType};
-use core::fmt::Debug;
 use core::fmt;
+use core::fmt::Debug;
 pub trait Expr {
     fn to_string(&self) -> String;
 }
@@ -9,6 +9,14 @@ impl Debug for dyn Expr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Expression {{{}}}", self.to_string())
     }
+}
+
+pub struct Empty {}
+
+pub struct Ternery {
+    pub predicate: Box<dyn Expr>,
+    pub true_arm: Box<dyn Expr>,
+    pub false_arm: Box<dyn Expr>,
 }
 
 pub struct Literal {
@@ -21,7 +29,7 @@ pub struct Unary {
 }
 pub struct Binary {
     left: Box<dyn Expr>,
-    op:Token,
+    op: Token,
     right: Box<dyn Expr>,
 }
 
@@ -37,20 +45,33 @@ impl Binary {
     }
 }
 
-impl Grouping {
-    pub fn push_expr(&mut self, expr:  Box<dyn Expr>) {
-        self.exprs.push(expr)
-    }
-}
-
 #[derive(Debug)]
 pub struct Grouping {
-    pub exprs: Vec::<Box<dyn Expr>>,
+    pub exprs: Vec<Box<dyn Expr>>,
 }
 
 impl fmt::Display for dyn Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_string())
+    }
+}
+
+impl Expr for Empty {
+    fn to_string(&self) -> String {
+        format!("<Discarded expression>")
+    }
+}
+
+impl Expr for Ternery {
+    fn to_string(&self) -> String {
+        let mut cucc = String::from("(");
+        cucc.push_str(&self.predicate.to_string());
+        cucc.push_str(" ? ");
+        cucc.push_str(&self.true_arm.to_string());
+        cucc.push_str(" : ");
+        cucc.push_str(&self.false_arm.to_string());
+        cucc.push(')');
+        return cucc;
     }
 }
 
@@ -75,18 +96,21 @@ impl Expr for Binary {
 impl Expr for Grouping {
     fn to_string(&self) -> String {
         let mut cucc = String::from("(");
-        for expr in self.exprs.iter() {
-            cucc.push('(');
+        for (i, expr) in self.exprs.iter().enumerate() {
             cucc.push_str(&expr.to_string());
-            cucc.push(')');
+
+            if i < self.exprs.len() - 1 {
+                cucc.push(',');
+            }
         }
+        cucc.push(')');
 
         return cucc;
     }
 }
 
 pub fn test() {
-    let token_type =  TokenType::String;
+    let token_type = TokenType::String;
 
     let literal = Literal {
         literal_type: token_type,
