@@ -2,7 +2,10 @@ use crate::token::{self, Token, TokenType};
 use core::fmt;
 use core::fmt::Debug;
 
-use super::evaluate::{arithmetic, plus};
+use super::{
+    evaluate::{arithmetic, comparison, plus},
+    runtime_error,
+};
 
 pub trait Expr {
     fn to_string(&self) -> String;
@@ -162,7 +165,21 @@ impl Expr for Binary {
                     }
                 }
             }
-            _ => return Literal::Null,
+            TokenType::Less
+            | TokenType::LessEqual
+            | TokenType::Greater
+            | TokenType::GreaterEqual => {
+                let res = comparison(self);
+                match res {
+                    Ok(value) => value,
+                    Err(runtime_error) => {
+                        println!("{}", runtime_error.to_string());
+
+                        Literal::Null
+                    }
+                }
+            }
+            _ => Literal::Null,
         }
     }
 }

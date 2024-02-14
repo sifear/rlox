@@ -3,6 +3,8 @@ use core::fmt;
 pub enum RuntimeErrorType {
     OperationNotSupported,
     ArithmeticInvalidOperand,
+    ComparisonInvalidOperand,
+    ComparisonInvalidOperator,
     ArithmeticInvalidOperator,
     ArithemticInvalidOperandAfterCast,
 }
@@ -29,6 +31,16 @@ impl fmt::Display for RuntimeError {
             RuntimeErrorType::ArithmeticInvalidOperator => write!(
                 f,
                 "Invalid operator of arithmetic expression at line {}",
+                self.line
+            ),
+            RuntimeErrorType::ComparisonInvalidOperator => write!(
+                f,
+                "Invalid operator of comparison expression at line {}",
+                self.line
+            ),
+            RuntimeErrorType::ComparisonInvalidOperand => write!(
+                f,
+                "Invalid operator of comparison expression at line {}",
                 self.line
             ),
             RuntimeErrorType::OperationNotSupported => {

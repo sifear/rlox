@@ -105,3 +105,31 @@ pub fn plus(expr: &Binary) -> Result<Literal, RuntimeError> {
         }
     }
 }
+
+pub fn comparison(expr: &Binary) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate();
+    let right = expr.right.evaluate();
+
+    match left {
+        Literal::Number(lv) => match right {
+            Literal::Number(rv) => match expr.op.token_type {
+                TokenType::Less => Ok(Literal::Boolean(lv < rv)),
+                TokenType::LessEqual => Ok(Literal::Boolean(lv <= rv)),
+                TokenType::Greater => Ok(Literal::Boolean(lv > rv)),
+                TokenType::GreaterEqual => Ok(Literal::Boolean(lv >= rv)),
+                _ => Err(RuntimeError::new(
+                    RuntimeErrorType::ComparisonInvalidOperand,
+                    0,
+                )),
+            },
+            _ => Err(RuntimeError::new(
+                RuntimeErrorType::ComparisonInvalidOperand,
+                0,
+            )),
+        },
+        _ => Err(RuntimeError::new(
+            RuntimeErrorType::ComparisonInvalidOperand,
+            0,
+        )),
+    }
+}

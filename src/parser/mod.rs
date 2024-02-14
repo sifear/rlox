@@ -23,12 +23,12 @@ pub mod evaluate;
 
 pub fn test2() {
     let mut tokens = vec![];
-    // tokens.push(Token::new(TokenType::Number(1.0), None, 1));
     tokens.push(Token::new(TokenType::Number(1.2), None, 1));
-    tokens.push(Token::new(TokenType::Plus, None, 1));
-    tokens.push(Token::new(TokenType::String(String::from("1.22")), None, 1));
-    tokens.push(Token::new(TokenType::Plus, None, 1));
-    tokens.push(Token::new(TokenType::String(String::from("1.22")), None, 1));
+    tokens.push(Token::new(TokenType::Greater, None, 1));
+    tokens.push(Token::new(TokenType::Number(1.0), None, 1));
+    // tokens.push(Token::new(TokenType::String(String::from("1.22")), None, 1));
+    // tokens.push(Token::new(TokenType::Less, None, 1));
+    // tokens.push(Token::new(TokenType::String(String::from("1.22")), None, 1));
 
     let mut a = Parser::new(&tokens);
     let ast = a.parse();
