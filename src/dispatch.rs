@@ -1,6 +1,9 @@
 use std::fs::File;
 use std::io::{self, Read};
 
+use crate::parser::expression::Expr;
+use crate::parser::Parser;
+
 pub fn run_file(path: &String) {
     let mut buf = vec![];
     let mut file = File::open(path).unwrap();
@@ -10,6 +13,20 @@ pub fn run_file(path: &String) {
 
     let mut scanner = crate::scanner::Scanner::new(&source);
     scanner.run();
+
+    let mut a = Parser::new(&scanner.tokens);
+    let ast = a.parse();
+    
+    match ast {
+        Ok(ast) => {
+            println!("{}", ast);
+            let res = ast.evaluate();
+            println!("{:?}", res);
+            println!("Evaluated: {}", res.to_string());
+
+        },
+        Err(err) => println!("{}", err),
+    }
 }
 
 pub fn run_prompt() {

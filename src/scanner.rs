@@ -8,7 +8,7 @@ use crate::token::TokenType;
 
 pub struct Scanner<'a> {
     source: Peekable<Chars<'a>>,
-    tokens: Vec<Token>,
+    pub tokens: Vec<Token>,
     had_errors: bool,
     line: u32,
 }
@@ -27,16 +27,18 @@ impl<'a> Scanner<'a> {
 
     pub fn run(&mut self) {
         let tokens = match self.scan_tokens(0) {
-            Ok(tokens) => tokens,
+            Ok(tokens) => {
+                self.tokens = tokens;
+            },
             Err(err) => {
                 report(1, String::from(""), &err);
                 exit(65);
             }
         };
 
-        for token in tokens {
-            println!("{} in line {}", token.to_string(), token.line);
-        }
+        // for token in &self.tokens {
+        //     println!("{} in line {}", token.to_string(), token.line);
+        // }
     }
 
     fn scan_tokens(&mut self, start: i32) -> Result<Vec<Token>, String> {

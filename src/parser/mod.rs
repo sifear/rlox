@@ -21,30 +21,6 @@ pub mod evaluate;
 // primary        → NUMBER | STRING | "true" | "false" | "nil"
 //                | "(" expression ( "(" expression ")")* ")" ;
 
-pub fn test2() {
-    let mut tokens = vec![];
-    tokens.push(Token::new(TokenType::Number(1.2), None, 1));
-    tokens.push(Token::new(TokenType::Greater, None, 1));
-    tokens.push(Token::new(TokenType::Number(1.0), None, 1));
-    // tokens.push(Token::new(TokenType::String(String::from("1.22")), None, 1));
-    // tokens.push(Token::new(TokenType::Less, None, 1));
-    // tokens.push(Token::new(TokenType::String(String::from("1.22")), None, 1));
-
-    let mut a = Parser::new(&tokens);
-    let ast = a.parse();
-
-    match ast {
-        Ok(ast) => {
-            println!("{}", ast);
-            let res = ast.evaluate();
-            println!("Evaluated: {}", res.to_string());
-
-        },
-        Err(err) => println!("{}", err),
-    }
-
-}
-
 pub struct Parser<'a> {
     current: u32,
     tokens: &'a Vec<Token>,
@@ -320,6 +296,7 @@ impl<'a> Parser<'a> {
                 }
             }
             _ => {
+                println!("in grouping");
                 return Err(ParserError::new(ParserErrorType::ExpressionExpected, 0));
             }
         }

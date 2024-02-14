@@ -90,6 +90,9 @@ pub fn plus(expr: &Binary) -> Result<Literal, RuntimeError> {
         },
         Literal::String(lstr) => match right {
             Literal::String(rstr) => Ok(Literal::String(format!("{}{}", lstr, rstr))),
+            Literal::Number(rstr_num) => {
+                Ok(Literal::String(format!("{}{}", lstr, rstr_num.to_string())))
+            }
             _ => {
                 return Err(RuntimeError::new(
                     RuntimeErrorType::OperationNotSupported,
@@ -129,6 +132,60 @@ pub fn comparison(expr: &Binary) -> Result<Literal, RuntimeError> {
         },
         _ => Err(RuntimeError::new(
             RuntimeErrorType::ComparisonInvalidOperand,
+            0,
+        )),
+    }
+}
+
+pub fn eq_comparison(expr: &Binary) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate();
+    let right = expr.right.evaluate();
+
+    match left {
+        Literal::Boolean(lb) => match right {
+            Literal::Boolean(rb) => match expr.op.token_type {
+                TokenType::BangEqual => Ok(Literal::Boolean(lb != rb)),
+                TokenType::EqualEqual => Ok(Literal::Boolean(lb == rb)),
+                _ => Err(RuntimeError::new(
+                    RuntimeErrorType::OperationNotSupported,
+                    0,
+                )),
+            },
+            _ => Err(RuntimeError::new(
+                RuntimeErrorType::OperationNotSupported,
+                0,
+            )),
+        },
+        Literal::Number(ln) => match right {
+            Literal::Number(rn) => match expr.op.token_type {
+                TokenType::BangEqual => Ok(Literal::Boolean(ln != rn)),
+                TokenType::EqualEqual => Ok(Literal::Boolean(ln == rn)),
+                _ => Err(RuntimeError::new(
+                    RuntimeErrorType::OperationNotSupported,
+                    0,
+                )),
+            },
+            _ => Err(RuntimeError::new(
+                RuntimeErrorType::OperationNotSupported,
+                0,
+            )),
+        },
+        Literal::String(ls) => match right {
+            Literal::String(rs) => match expr.op.token_type {
+                TokenType::BangEqual => Ok(Literal::Boolean(ls != rs)),
+                TokenType::EqualEqual => Ok(Literal::Boolean(ls == rs)),
+                _ => Err(RuntimeError::new(
+                    RuntimeErrorType::OperationNotSupported,
+                    0,
+                )),
+            },
+            _ => Err(RuntimeError::new(
+                RuntimeErrorType::OperationNotSupported,
+                0,
+            )),
+        },
+        _ => Err(RuntimeError::new(
+            RuntimeErrorType::OperationNotSupported,
             0,
         )),
     }
