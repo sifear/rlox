@@ -1,8 +1,12 @@
 use crate::token::{self, Token, TokenType};
 use core::fmt;
 use core::fmt::Debug;
+
+use super::evaluate::{arithmetic, plus};
+
 pub trait Expr {
     fn to_string(&self) -> String;
+    fn evaluate(&self) -> Literal;
 }
 
 impl Debug for dyn Expr {
@@ -19,8 +23,12 @@ pub struct Ternery {
     pub false_arm: Box<dyn Expr>,
 }
 
-pub struct Literal {
-    pub literal_type: TokenType,
+#[derive(Debug, Clone)]
+pub enum Literal {
+    String(String),
+    Number(f64),
+    Boolean(bool),
+    Null,
 }
 
 pub struct Unary {
@@ -28,9 +36,9 @@ pub struct Unary {
     right: Box<dyn Expr>,
 }
 pub struct Binary {
-    left: Box<dyn Expr>,
-    op: Token,
-    right: Box<dyn Expr>,
+    pub left: Box<dyn Expr>,
+    pub op: Token,
+    pub right: Box<dyn Expr>,
 }
 
 impl Unary {
@@ -60,6 +68,10 @@ impl Expr for Empty {
     fn to_string(&self) -> String {
         format!("<Discarded expression>")
     }
+
+    fn evaluate(&self) -> Literal {
+        return Literal::Null;
+    }
 }
 
 impl Expr for Ternery {
@@ -73,11 +85,25 @@ impl Expr for Ternery {
         cucc.push(')');
         return cucc;
     }
+
+    fn evaluate(&self) -> Literal {
+        return Literal::Null;
+    }
 }
 
 impl Expr for Literal {
     fn to_string(&self) -> String {
-        format!("({})", self.literal_type)
+        match self {
+            Literal::Null => String::from("(Null literal)"),
+            Literal::Boolean(true) => String::from("(True literal)"),
+            Literal::Boolean(false) => String::from("(False literal)"),
+            Literal::Number(n) => format!("(Number literal: {})", n),
+            Literal::String(str_val) => format!("(String literal: {})", str_val),
+        }
+    }
+
+    fn evaluate(&self) -> Literal {
+        return self.clone();
     }
 }
 
@@ -85,11 +111,59 @@ impl Expr for Unary {
     fn to_string(&self) -> String {
         format!("({} {})", self.op, self.right)
     }
+
+    fn evaluate(&self) -> Literal {
+        match self.op.token_type {
+            TokenType::Minus => {
+                let ampl = self.right.evaluate();
+                match ampl {
+                    Literal::Number(n) => Literal::Number(-1.0 * n),
+                    _ => {
+                        panic!("Error while evaluating minus unary.")
+                    }
+                }
+            }
+            TokenType::Bang => {
+                let ampl = is_truthy(self.right.evaluate());
+                return Literal::Boolean(!ampl);
+            }
+            _ => {
+                panic!("Unexpected operator token type while evaluating unary.")
+            }
+        }
+    }
 }
 
 impl Expr for Binary {
     fn to_string(&self) -> String {
         format!("({} {} {})", self.op, self.left, self.right)
+    }
+    fn evaluate(&self) -> Literal {
+        match self.op.token_type {
+            TokenType::Minus | TokenType::Star | TokenType::Slash => {
+                let res = arithmetic(self);
+                match res {
+                    Ok(value) => value,
+                    Err(runtime_error) => {
+                        println!("{}", runtime_error.to_string());
+
+                        Literal::Null
+                    }
+                }
+            }
+            TokenType::Plus => {
+                let res = plus(&self);
+                match res {
+                    Ok(value) => value,
+                    Err(runtime_error) => {
+                        println!("{}", runtime_error.to_string());
+
+                        Literal::Null
+                    }
+                }
+            }
+            _ => return Literal::Null,
+        }
     }
 }
 
@@ -107,20 +181,16 @@ impl Expr for Grouping {
 
         return cucc;
     }
+
+    fn evaluate(&self) -> Literal {
+        self.exprs.iter().map(|a| a.evaluate()).last().unwrap()
+    }
 }
 
-pub fn test() {
-    let token_type = TokenType::String;
-
-    let literal = Literal {
-        literal_type: token_type,
-    };
-    let unary_expr = Unary {
-        op: Token::new(TokenType::Minus, None, None, 1),
-        right: Box::new(literal),
-    };
-
-    let unary_box: Box<dyn Expr> = Box::new(unary_expr);
-
-    println!("{}", unary_box);
+fn is_truthy(literal: Literal) -> bool {
+    match literal {
+        Literal::Boolean(false) => false,
+        Literal::Null => false,
+        _ => true,
+    }
 }

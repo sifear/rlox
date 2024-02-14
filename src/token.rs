@@ -1,8 +1,8 @@
 use core::fmt;
 
-#[derive(PartialEq)]
-#[derive(Clone)]
-#[derive(Debug)]
+use crate::parser::expression::Literal;
+
+#[derive(PartialEq, Clone, Debug)]
 pub enum TokenType {
     // Single-character tokens
     LeftParen,
@@ -31,8 +31,8 @@ pub enum TokenType {
 
     // Literals
     Identifier,
-    String,
-    Number,
+    String(String),
+    Number(f64),
 
     // Keywords
     And,
@@ -81,7 +81,7 @@ impl fmt::Display for TokenType {
             TokenType::LessEqual => write!(f, "LessEqual"),
             TokenType::Minus => write!(f, "Minus"),
             TokenType::Nil => write!(f, "Nil"),
-            TokenType::Number => write!(f, "Number"),
+            TokenType::Number(n) => write!(f, "Number: {}", n.to_string()),
             TokenType::Or => write!(f, "Or"),
             TokenType::Plus => write!(f, "Plus"),
             TokenType::Print => write!(f, "Print"),
@@ -91,7 +91,7 @@ impl fmt::Display for TokenType {
             TokenType::Semicolon => write!(f, "Semicolon"),
             TokenType::Slash => write!(f, "Slash"),
             TokenType::Star => write!(f, "Star"),
-            TokenType::String => write!(f, "String literal"),
+            TokenType::String(str_value) => write!(f, "String literal: {}", str_value),
             TokenType::Super => write!(f, "Super"),
             TokenType::This => write!(f, "This"),
             TokenType::True => write!(f, "True"),
@@ -103,38 +103,24 @@ impl fmt::Display for TokenType {
     }
 }
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: Option<String>,
-    pub literal: Option<String>,
     pub line: u32,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: Option<String>, literal: Option<String>, line: u32) -> Token {
+    pub fn new(token_type: TokenType, lexeme: Option<String>, line: u32) -> Token {
         Token {
             token_type,
             lexeme,
-            literal,
             line,
         }
     }
 
     pub fn to_string(&self) -> String {
-        let mut as_string = self.token_type.to_string();
-
-        match &self.literal {
-            Some(lit) => {
-                let a = format!("<{}>", lit);
-
-                as_string.push_str(&a);
-            }
-            None => {},
-        };
-
-        as_string
+        format!("Token: <{}>", self.token_type.to_string())
     }
 }
 

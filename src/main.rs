@@ -1,10 +1,11 @@
 use dispatch::{run_file, run_prompt};
-use parser::{expression::test, test2};
+use parser::{test2};
 
 mod token;
 mod scanner;
 mod parser;
 mod dispatch;
+mod interpreter;
 
 fn main() {
     test2();

@@ -64,7 +64,7 @@ impl<'a> Scanner<'a> {
             };
         }
 
-        tokens.push(Token::new(TokenType::Eof, None, None, self.line));
+        tokens.push(Token::new(TokenType::Eof, None, self.line));
 
         return Ok(tokens);
     }
@@ -74,40 +74,35 @@ impl<'a> Scanner<'a> {
             '(' => Result::Ok(Some(Token::new(
                 TokenType::LeftParen,
                 None,
-                None,
                 self.line,
             ))),
             ')' => Result::Ok(Some(Token::new(
                 TokenType::RightParen,
-                None,
                 None,
                 self.line,
             ))),
             '{' => Result::Ok(Some(Token::new(
                 TokenType::LeftBrace,
                 None,
-                None,
                 self.line,
             ))),
             '}' => Result::Ok(Some(Token::new(
                 TokenType::RightBrace,
                 None,
-                None,
                 self.line,
             ))),
-            ',' => Result::Ok(Some(Token::new(TokenType::Comma, None, None, self.line))),
-            '.' => Result::Ok(Some(Token::new(TokenType::Dot, None, None, self.line))),
-            '-' => Result::Ok(Some(Token::new(TokenType::Minus, None, None, self.line))),
-            '+' => Result::Ok(Some(Token::new(TokenType::Plus, None, None, self.line))),
+            ',' => Result::Ok(Some(Token::new(TokenType::Comma, None, self.line))),
+            '.' => Result::Ok(Some(Token::new(TokenType::Dot, None, self.line))),
+            '-' => Result::Ok(Some(Token::new(TokenType::Minus, None, self.line))),
+            '+' => Result::Ok(Some(Token::new(TokenType::Plus, None, self.line))),
             ';' => Result::Ok(Some(Token::new(
                 TokenType::Semicolon,
                 None,
-                None,
                 self.line,
             ))),
-            '*' => Result::Ok(Some(Token::new(TokenType::Star, None, None, self.line))),
-            '?' => Result::Ok(Some(Token::new(TokenType::Star, None, None, self.line))),
-            ':' => Result::Ok(Some(Token::new(TokenType::Colon, None, None, self.line))),
+            '*' => Result::Ok(Some(Token::new(TokenType::Star, None, self.line))),
+            '?' => Result::Ok(Some(Token::new(TokenType::Star, None, self.line))),
+            ':' => Result::Ok(Some(Token::new(TokenType::Colon, None, self.line))),
             '"' => self.string(),
             '0'..='9' => self.number(next_char),
             'a'..='z' | 'A'..='Z' => self.identifier(next_char),
@@ -148,11 +143,10 @@ impl<'a> Scanner<'a> {
         }
 
         if let Some(token_type) = self.reserved_token_type(&identifier_name) {
-            Ok(Some(Token::new(token_type, None, None, self.line)))
+            Ok(Some(Token::new(token_type, None, self.line)))
         } else {
             Ok(Some(Token::new(
                 TokenType::Identifier,
-                None,
                 None,
                 self.line,
             )))
@@ -208,9 +202,8 @@ impl<'a> Scanner<'a> {
         }
 
         Ok(Some(Token::new(
-            TokenType::String,
+            TokenType::String(literal),
             None,
-            Some(literal),
             self.line,
         )))
     }
@@ -253,10 +246,11 @@ impl<'a> Scanner<'a> {
             };
         }
 
+        let float = literal.parse::<f64>().unwrap();
+
         Ok(Some(Token::new(
-            TokenType::Number,
+            TokenType::Number(float),
             None,
-            Some(literal),
             self.line,
         )))
     }
@@ -271,9 +265,9 @@ impl<'a> Scanner<'a> {
             Some(ch) if *ch == factor => {
                 self.source.next();
 
-                Result::Ok(Some(Token::new(token_type_b, None, None, self.line)))
+                Result::Ok(Some(Token::new(token_type_b, None, self.line)))
             }
-            _ => Result::Ok(Some(Token::new(token_type_a, None, None, self.line))),
+            _ => Result::Ok(Some(Token::new(token_type_a, None, self.line))),
         }
     }
 
@@ -294,7 +288,7 @@ impl<'a> Scanner<'a> {
                     }
                 }
             }
-            _ => Result::Ok(Some(Token::new(TokenType::Slash, None, None, self.line))),
+            _ => Result::Ok(Some(Token::new(TokenType::Slash, None, self.line))),
         }
     }
 }

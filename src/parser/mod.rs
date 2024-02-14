@@ -1,4 +1,3 @@
-use core::panic;
 use std::io::{Error, ErrorKind};
 
 use crate::token::{self, Token, TokenType};
@@ -9,6 +8,8 @@ use self::parser_error::{ParserError, ParserErrorType};
 
 pub mod expression;
 pub mod parser_error;
+pub mod runtime_error;
+pub mod evaluate;
 
 // expression     → equality ( "?" exression ":" expression )*
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -22,36 +23,26 @@ pub mod parser_error;
 
 pub fn test2() {
     let mut tokens = vec![];
-    // tokens.push(Token::new(TokenType::LeftParen, None, None, 1));
-    // tokens.push(Token::new(TokenType::Number, None, None, 1));
-    // tokens.push(Token::new(TokenType::Plus, None, None, 1));
-    // tokens.push(Token::new(TokenType::LeftParen, None, None, 1));
-    // tokens.push(Token::new(TokenType::Star, None, None, 1));
-    // tokens.push(Token::new(TokenType::Minus, None, None, 1));
-    // tokens.push(Token::new(TokenType::Number, None, None, 1));
-    // tokens.push(Token::new(TokenType::RightParen, None, None, 1));
-    // tokens.push(Token::new(TokenType::Comma, None, None, 1));
-    // tokens.push(Token::new(TokenType::String, None, None, 1));
-    // tokens.push(Token::new(TokenType::RightParen, None, None, 1));
-
-    tokens.push(Token::new(TokenType::Number, None, None, 1));
-    tokens.push(Token::new(TokenType::Less, None, None, 1));
-    tokens.push(Token::new(TokenType::Number, None, None, 1));
-    tokens.push(Token::new(TokenType::QuestionMark, None, None, 1));
-    tokens.push(Token::new(TokenType::String, None, None, 1));
-    tokens.push(Token::new(TokenType::Colon, None, None, 1));
-    tokens.push(Token::new(TokenType::Number, None, None, 1));
-    tokens.push(Token::new(TokenType::Minus, None, None, 1));
-    tokens.push(Token::new(TokenType::Number, None, None, 1));
-
+    // tokens.push(Token::new(TokenType::Number(1.0), None, 1));
+    tokens.push(Token::new(TokenType::Number(1.2), None, 1));
+    tokens.push(Token::new(TokenType::Plus, None, 1));
+    tokens.push(Token::new(TokenType::String(String::from("1.22")), None, 1));
+    tokens.push(Token::new(TokenType::Plus, None, 1));
+    tokens.push(Token::new(TokenType::String(String::from("1.22")), None, 1));
 
     let mut a = Parser::new(&tokens);
     let ast = a.parse();
 
     match ast {
-        Ok(ast) => println!("{}", ast),
+        Ok(ast) => {
+            println!("{}", ast);
+            let res = ast.evaluate();
+            println!("Evaluated: {}", res.to_string());
+
+        },
         Err(err) => println!("{}", err),
     }
+
 }
 
 pub struct Parser<'a> {
@@ -251,18 +242,23 @@ impl<'a> Parser<'a> {
     }
 
     fn primary(&mut self) -> Result<Box<dyn Expr>, ParserError> {
-        match self._match_(&[
-            TokenType::False,
-            TokenType::True,
-            TokenType::Nil,
-            TokenType::String,
-            TokenType::Number,
-        ]) {
-            Some(a) => {
-                return Result::Ok(Box::new(Literal {
-                    literal_type: a.token_type,
-                }))
-            }
+        let str_val = self._match_string_();
+        if str_val.is_some() {
+            return Result::Ok(Box::new(Literal::String(str_val.unwrap())));
+        }
+
+        let num_val = self._match_number_();
+        if num_val.is_some() {
+            return Result::Ok(Box::new(Literal::Number(num_val.unwrap())));
+        }
+
+        match self._match_(&[TokenType::False, TokenType::True, TokenType::Nil]) {
+            Some(a) => match a.token_type {
+                TokenType::False => return Result::Ok(Box::new(Literal::Boolean(false))),
+                TokenType::True => return Result::Ok(Box::new(Literal::Boolean(true))),
+                TokenType::Nil => return Result::Ok(Box::new(Literal::Null {})),
+                _ => {}
+            },
             _ => {
                 // panic!("Nemjo")
             }
@@ -360,6 +356,34 @@ impl<'a> Parser<'a> {
         }
 
         return None;
+    }
+
+    fn _match_string_(&mut self) -> Option<String> {
+        if (self.current) as usize >= self.tokens.len() {
+            return None;
+        }
+
+        match &self.tokens[(self.current) as usize].token_type {
+            TokenType::String(str_val) => {
+                self.current += 1;
+                return Some(str_val.clone());
+            }
+            _ => None,
+        }
+    }
+
+    fn _match_number_(&mut self) -> Option<f64> {
+        if (self.current) as usize >= self.tokens.len() {
+            return None;
+        }
+
+        match self.tokens[(self.current) as usize].token_type {
+            TokenType::Number(n) => {
+                self.current += 1;
+                return Some(n);
+            }
+            _ => None,
+        }
     }
 
     // Check current, doesnt advance
