@@ -1,15 +1,35 @@
+use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 
+use crate::environment::Environment;
+use crate::parser::runtime_error::RuntimeErrorType;
 use crate::token::{self, Token, TokenType};
 use expression::{Binary, Expr, Unary};
 
-use self::expression::{Empty, Grouping, Literal, Ternery};
+use self::expression::{Empty, Grouping, Literal, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
+use self::runtime_error::RuntimeError;
+use self::statement::{ExprStmt, PrintStmt, Statement, VarStmt};
 
+pub mod evaluate;
 pub mod expression;
 pub mod parser_error;
 pub mod runtime_error;
-pub mod evaluate;
+pub mod statement;
+
+// program        → statement* EOF
+//                | declaration* EOF;
+
+// declaration    → varDecl
+//                | statement ;
+
+// varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
+
+// statement      → exprStmt
+//                | printStmt ;
+
+// exprStmt       → expression ";" ;
+// printStmt      → "print" expression ";" ;
 
 // expression     → equality ( "?" exression ":" expression )*
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -20,19 +40,145 @@ pub mod evaluate;
 //                | primary ;
 // primary        → NUMBER | STRING | "true" | "false" | "nil"
 //                | "(" expression ( "(" expression ")")* ")" ;
+//                | IDENTIFIER ;
 
 pub struct Parser<'a> {
     current: u32,
     tokens: &'a Vec<Token>,
+    statements: Vec<Box<dyn Statement>>,
+    env: Environment,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &Vec<Token>) -> Parser {
-        Parser { current: 0, tokens }
+        Parser {
+            current: 0,
+            tokens,
+            statements: vec![],
+            env: Environment {
+                values: HashMap::new(),
+            },
+        }
     }
 
-    pub fn parse(&mut self) -> Result<Box<dyn Expr>, ParserError> {
-        self.expression()
+    pub fn interpret(&mut self) {
+        self.parse();
+
+        println!("{:?}", self.statements);
+
+        for stmt in &self.statements {
+            stmt.evaluate(&mut self.env);
+        }
+    }
+
+    pub fn parse(&mut self) {
+        while self.current < ((*self.tokens).len() - 1) as u32 {
+            match self.statement() {
+                Ok(stmt) => self.statements.push(stmt),
+                Err(err) => {
+                    println!("{}", err);
+                    self.syncronize();
+                }
+            }
+        }
+    }
+
+    pub fn statement(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
+        match self._match_(&[TokenType::Var]) {
+            Some(token) => return self.var_declaration(),
+            None => {}
+        }
+
+        match self._match_(&[TokenType::Print]) {
+            Some(token) => {
+                let print_stmt = self.print_stmt();
+                match print_stmt {
+                    Ok(expr) => return Ok(expr),
+                    Err(err) => return Err(err),
+                }
+            }
+            None => {}
+        };
+
+        let expr = self.expression();
+        match expr {
+            Ok(expr) => {
+                let res = self.consume(&TokenType::Semicolon);
+                match res {
+                    Ok(_) => return Ok(Box::new(ExprStmt { expr })),
+                    Err(a) => {
+                        return Err(RuntimeError::new(
+                            RuntimeErrorType::StatementMissingSemicolon,
+                            0,
+                        ))
+                    }
+                }
+            }
+            Err(err) => {
+                println!("{}", err);
+
+                Err(RuntimeError::new(RuntimeErrorType::StatementExpected, 0))
+            }
+        }
+    }
+
+    pub fn var_declaration(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
+        let res = self.consume(&TokenType::Identifier);
+        if res.is_err() {
+            println!("{}", res.unwrap_err());
+            return Err(RuntimeError::new(RuntimeErrorType::IdentifierExpedcted, 0));
+        }
+
+        let mut initializer: Option<Box<dyn Expr>> = None;
+        match self._match_(&[TokenType::Equal]) {
+            Some(token) => {
+                let init_expr = self.expression();
+                match init_expr {
+                    Ok(expr) => {
+                        initializer = Some(expr);
+                    }
+                    Err(err) => {
+                        println!("{}", err);
+
+                        return Err(RuntimeError::new(
+                            RuntimeErrorType::VarInitializerExpected,
+                            0,
+                        ));
+                    }
+                };
+            }
+            None => {}
+        };
+
+        self.consume(&TokenType::Semicolon);
+
+        Ok(Box::new(VarStmt {
+            initializer,
+            name: res.unwrap(),
+        }))
+    }
+
+    pub fn print_stmt(&mut self) -> Result<Box<PrintStmt>, RuntimeError> {
+        let res = self.expression();
+        match res {
+            Ok(expr) => {
+                let res = self.consume(&TokenType::Semicolon);
+                match res {
+                    Ok(_) => return Ok(Box::new(PrintStmt { expr })),
+                    Err(a) => {
+                        return Err(RuntimeError::new(
+                            RuntimeErrorType::StatementMissingSemicolon,
+                            0,
+                        ))
+                    }
+                }
+            }
+            Err(err) => {
+                println!("{}", err);
+
+                Err(RuntimeError::new(RuntimeErrorType::StatementExpected, 0))
+            }
+        }
     }
 
     fn expression(&mut self) -> Result<Box<dyn Expr>, ParserError> {
@@ -240,6 +386,11 @@ impl<'a> Parser<'a> {
             }
         };
 
+        match self._match_(&[TokenType::Identifier]) {
+            Some(token) => return Result::Ok(Box::new(Variable { name: token })),
+            None => {}
+        };
+
         // Grouping from here
 
         let a = self.grouping();
@@ -273,7 +424,7 @@ impl<'a> Parser<'a> {
                                 grouping.exprs.push(right.unwrap());
                                 let res = self.consume(&TokenType::RightParen);
                                 match res {
-                                    Ok(()) => {
+                                    Ok(_) => {
                                         return Result::Ok(Box::new(grouping));
                                     }
                                     Err(_) => {
@@ -288,7 +439,7 @@ impl<'a> Parser<'a> {
                         None => {
                             let res = self.consume(&TokenType::RightParen);
                             match res {
-                                Ok(()) => return Result::Ok(Box::new(grouping)),
+                                Ok(_) => return Result::Ok(Box::new(grouping)),
                                 Err(error) => return Err(error),
                             }
                         }
@@ -303,7 +454,7 @@ impl<'a> Parser<'a> {
     }
 
     // Same as _match_ but parse error happen if expectation is not matched
-    fn consume(&mut self, expected: &TokenType) -> Result<(), ParserError> {
+    fn consume(&mut self, expected: &TokenType) -> Result<Token, ParserError> {
         if ((self.current) as usize) >= self.tokens.len() {
             return Err(ParserError::new(
                 ParserErrorType::UnclosedGroup,
@@ -320,7 +471,9 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        Ok(())
+        println!("consumed {}", self.tokens[self.current as usize]);
+
+        Ok(self.tokens[(self.current - 1) as usize].clone())
     }
 
     // Checks current token and advance if match
@@ -332,7 +485,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return None;
+        None
     }
 
     fn _match_string_(&mut self) -> Option<String> {

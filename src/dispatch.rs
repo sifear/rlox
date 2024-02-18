@@ -14,19 +14,8 @@ pub fn run_file(path: &String) {
     let mut scanner = crate::scanner::Scanner::new(&source);
     scanner.run();
 
-    let mut a = Parser::new(&scanner.tokens);
-    let ast = a.parse();
-    
-    match ast {
-        Ok(ast) => {
-            println!("{}", ast);
-            let res = ast.evaluate();
-            println!("{:?}", res);
-            println!("Evaluated: {}", res.to_string());
-
-        },
-        Err(err) => println!("{}", err),
-    }
+    let mut parser = Parser::new(&scanner.tokens);
+    parser.interpret();
 }
 
 pub fn run_prompt() {
@@ -41,5 +30,8 @@ pub fn run_prompt() {
 
         let mut scanner = crate::scanner::Scanner::new(&buf);
         scanner.run();
+
+        let mut parser = Parser::new(&scanner.tokens);
+        parser.interpret();
     }
 }

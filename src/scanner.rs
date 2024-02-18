@@ -145,11 +145,11 @@ impl<'a> Scanner<'a> {
         }
 
         if let Some(token_type) = self.reserved_token_type(&identifier_name) {
-            Ok(Some(Token::new(token_type, None, self.line)))
+            Ok(Some(Token::new(token_type, Some(identifier_name), self.line)))
         } else {
             Ok(Some(Token::new(
                 TokenType::Identifier,
-                None,
+                Some(identifier_name),
                 self.line,
             )))
         }
@@ -204,8 +204,8 @@ impl<'a> Scanner<'a> {
         }
 
         Ok(Some(Token::new(
-            TokenType::String(literal),
-            None,
+            TokenType::String(literal.clone()),
+            Some(literal.clone()),
             self.line,
         )))
     }

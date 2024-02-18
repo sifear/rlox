@@ -1,15 +1,13 @@
-use crate::token::{self, Token, TokenType};
+use crate::{environment::Environment, token::{self, Token, TokenType}};
 use core::fmt;
 use core::fmt::Debug;
+use std::collections::HashMap;
 
-use super::{
-    evaluate::{arithmetic, comparison, eq_comparison, plus},
-    runtime_error,
-};
+use super::{evaluate::{arithmetic, comparison, eq_comparison, plus}, runtime_error::{RuntimeError, RuntimeErrorType}};
 
 pub trait Expr {
     fn to_string(&self) -> String;
-    fn evaluate(&self) -> Literal;
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>;
 }
 
 impl Debug for dyn Expr {
@@ -44,6 +42,10 @@ pub struct Binary {
     pub right: Box<dyn Expr>,
 }
 
+pub struct Variable {
+    pub name: Token,
+}
+
 impl Unary {
     pub fn new(right: Box<dyn Expr>, op: Token) -> Unary {
         Unary { right, op }
@@ -72,8 +74,8 @@ impl Expr for Empty {
         format!("<Discarded expression>")
     }
 
-    fn evaluate(&self) -> Literal {
-        return Literal::Null;
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        return Ok(Literal::Null);
     }
 }
 
@@ -89,8 +91,8 @@ impl Expr for Ternery {
         return cucc;
     }
 
-    fn evaluate(&self) -> Literal {
-        return Literal::Null;
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        return Ok(Literal::Null);
     }
 }
 
@@ -105,8 +107,8 @@ impl Expr for Literal {
         }
     }
 
-    fn evaluate(&self) -> Literal {
-        return self.clone();
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        return Ok(self.clone());
     }
 }
 
@@ -115,20 +117,34 @@ impl Expr for Unary {
         format!("({} {})", self.op, self.right)
     }
 
-    fn evaluate(&self) -> Literal {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus => {
-                let ampl = self.right.evaluate();
+                let ampl = self.right.evaluate(env);
                 match ampl {
-                    Literal::Number(n) => Literal::Number(-1.0 * n),
-                    _ => {
-                        panic!("Error while evaluating minus unary.")
-                    }
+                    Ok(res) => {
+                        match res {
+                            Literal::Number(n) => Ok(Literal::Number(-1.0 * n)),
+                            _ => {
+                                Err(RuntimeError::new(RuntimeErrorType::Unknown, 0))
+                            }
+                        }
+                    },
+                    Err(err) => Err(err)
                 }
+               
             }
             TokenType::Bang => {
-                let ampl = is_truthy(self.right.evaluate());
-                return Literal::Boolean(!ampl);
+                let a = self.right.evaluate(env);
+                match a {
+                    Ok(res) => {
+                        let ampl = is_truthy(res);
+
+                        Ok(Literal::Boolean(!ampl))
+                    }
+                    Err(err) => Err(err)
+                }
+
             }
             _ => {
                 panic!("Unexpected operator token type while evaluating unary.")
@@ -141,27 +157,27 @@ impl Expr for Binary {
     fn to_string(&self) -> String {
         format!("({} {} {})", self.op, self.left, self.right)
     }
-    fn evaluate(&self) -> Literal {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>  {
         match self.op.token_type {
             TokenType::Minus | TokenType::Star | TokenType::Slash => {
-                let res = arithmetic(self);
+                let res = arithmetic(self, &env);
                 match res {
-                    Ok(value) => value,
+                    Ok(value) => Ok(value),
                     Err(runtime_error) => {
                         println!("{}", runtime_error.to_string());
 
-                        Literal::Null
+                        Ok(Literal::Null)
                     }
                 }
             }
             TokenType::Plus => {
-                let res = plus(&self);
+                let res = plus(&self, &env);
                 match res {
-                    Ok(value) => value,
+                    Ok(value) => Ok(value),
                     Err(runtime_error) => {
                         println!("{}", runtime_error.to_string());
 
-                        Literal::Null
+                        Ok(Literal::Null)
                     }
                 }
             }
@@ -169,28 +185,28 @@ impl Expr for Binary {
             | TokenType::LessEqual
             | TokenType::Greater
             | TokenType::GreaterEqual => {
-                let res = comparison(self);
+                let res = comparison(self, &env);
                 match res {
-                    Ok(value) => value,
+                    Ok(value) => Ok(value),
                     Err(runtime_error) => {
                         println!("{}", runtime_error.to_string());
 
-                        Literal::Null
-                    }
-                }
-            },
-            TokenType::BangEqual | TokenType::EqualEqual => {
-                let res = eq_comparison(self);
-                match res {
-                    Ok(value) => value,
-                    Err(runtime_error) => {
-                        println!("{}", runtime_error.to_string());
-
-                        Literal::Null
+                        Ok(Literal::Null)
                     }
                 }
             }
-            _ => Literal::Null,
+            TokenType::BangEqual | TokenType::EqualEqual => {
+                let res = eq_comparison(self, &env);
+                match res {
+                    Ok(value) => Ok(value),
+                    Err(runtime_error) => {
+                        println!("{}", runtime_error.to_string());
+
+                        Ok(Literal::Null)
+                    }
+                }
+            }
+            _ => Ok(Literal::Null),
         }
     }
 }
@@ -210,8 +226,8 @@ impl Expr for Grouping {
         return cucc;
     }
 
-    fn evaluate(&self) -> Literal {
-        self.exprs.iter().map(|a| a.evaluate()).last().unwrap()
+    fn evaluate(&self, env: &Environment) ->  Result<Literal, RuntimeError> {
+        self.exprs.iter().map(|a| a.evaluate(env)).last().unwrap()
     }
 }
 
@@ -220,5 +236,25 @@ fn is_truthy(literal: Literal) -> bool {
         Literal::Boolean(false) => false,
         Literal::Null => false,
         _ => true,
+    }
+}
+
+impl Expr for Variable {
+    fn evaluate(&self, env: &Environment) ->  Result<Literal, RuntimeError> {
+        match &self.name.lexeme {
+            Some(name) => {
+                let a = env.get(name);
+                match a {
+                    Some(b) => Ok(b.clone()),
+                    None => Err(RuntimeError::new(RuntimeErrorType::IdentifierNotDefined, 0))
+                }
+            },
+            None => {
+               Err(RuntimeError::new(RuntimeErrorType::IdentifierTokenNotSaved, 0))
+            }
+        }
+    }
+    fn to_string(&self) -> String {
+        format!("(VAR {})", self.name.lexeme.clone().take().unwrap())
     }
 }

@@ -2,10 +2,10 @@ use dispatch::{run_file, run_prompt};
 use std::{env::args, process::exit};
 
 mod dispatch;
-mod interpreter;
 mod parser;
 mod scanner;
 mod token;
+mod environment;
 
 fn main() {
     let args = args().collect::<Vec<String>>();

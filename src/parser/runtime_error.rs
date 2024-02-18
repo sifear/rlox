@@ -1,5 +1,6 @@
 use core::fmt;
 
+#[derive(Debug)]
 pub enum RuntimeErrorType {
     OperationNotSupported,
     ArithmeticInvalidOperand,
@@ -7,8 +8,16 @@ pub enum RuntimeErrorType {
     ComparisonInvalidOperator,
     ArithmeticInvalidOperator,
     ArithemticInvalidOperandAfterCast,
+    StatementExpected,
+    StatementMissingSemicolon,
+    VarInitializerExpected,
+    IdentifierExpedcted,
+    IdentifierNotDefined,
+    IdentifierTokenNotSaved,
+    Unknown
 }
 
+#[derive(Debug)]
 pub struct RuntimeError {
     error_type: RuntimeErrorType,
     line: u32,
@@ -49,6 +58,41 @@ impl fmt::Display for RuntimeError {
             RuntimeErrorType::ArithemticInvalidOperandAfterCast => write!(
                 f,
                 "Unsuccessful cast while evaluating arithmetic expression at line {}",
+                self.line
+            ),
+            RuntimeErrorType::StatementExpected => write!(
+                f,
+                "Statement expected at line {}",
+                self.line
+            ),
+            RuntimeErrorType::StatementMissingSemicolon => write!(
+                f,
+                "Missing semicolonh after statement {}",
+                self.line
+            ),
+            RuntimeErrorType::VarInitializerExpected => write!(
+                f,
+                "Initilaizer expression is expected at line {}",
+                self.line
+            ),
+            RuntimeErrorType::IdentifierExpedcted => write!(
+                f,
+                "Identifier expression is expected at line {}",
+                self.line
+            ),
+            RuntimeErrorType::IdentifierNotDefined => write!(
+                f,
+                "Identifier not defined at line {}",
+                self.line
+            ),
+            RuntimeErrorType::IdentifierTokenNotSaved => write!(
+                f,
+                "Identifier token not saved at line {}",
+                self.line
+            ),
+            RuntimeErrorType::Unknown => write!(
+                f,
+                "Unknown error at line {}",
                 self.line
             ),
         }

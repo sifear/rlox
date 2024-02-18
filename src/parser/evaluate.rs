@@ -1,18 +1,27 @@
 use std::{any::TypeId, fmt::format};
 
-use crate::token::TokenType;
+use crate::{environment::Environment, token::TokenType};
 
 use super::{
     expression::{Binary, Expr, Literal},
     runtime_error::{RuntimeError, RuntimeErrorType},
 };
 
-pub fn arithmetic(expr: &Binary) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate();
-    let right = expr.right.evaluate();
+pub fn arithmetic(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(&env);
+    if left.is_err() {
+        return left;
+    }
+    let right = expr.right.evaluate(&env);
+    if right.is_err() {
+        return right;
+    }
 
-    match left {
-        Literal::Number(l) => match right {
+    let _left = left.unwrap();
+    let _right = right.unwrap();
+
+    match _left {
+        Literal::Number(l) => match _right {
             Literal::Number(r) => match expr.op.token_type {
                 TokenType::Minus => Ok(Literal::Number(l - r)),
                 TokenType::Plus => Ok(Literal::Number(l + r)),
@@ -41,18 +50,27 @@ pub fn arithmetic(expr: &Binary) -> Result<Literal, RuntimeError> {
     }
 }
 
-pub fn plus(expr: &Binary) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate();
-    let mut right = expr.right.evaluate();
+pub fn plus(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env);
+    if left.is_err() {
+        return left;
+    }
+    let mut right = expr.right.evaluate(env);
+    if right.is_err() {
+        return right;
+    }
 
-    match left {
-        Literal::Number(..) => match right {
+    let _left = left.unwrap();
+    let _right = right.unwrap();
+
+    match _left {
+        Literal::Number(..) => match &_right {
             Literal::String(r_str) => {
                 println!("to parse: {}", r_str);
                 let parsed = r_str.parse::<f64>();
                 match parsed {
                     Ok(res) => {
-                        right = Literal::Number(res);
+                        right = Ok(Literal::Number(res));
                     }
                     Err(..) => {
                         return Err(RuntimeError::new(
@@ -67,8 +85,8 @@ pub fn plus(expr: &Binary) -> Result<Literal, RuntimeError> {
         _ => {}
     };
 
-    match left {
-        Literal::Number(l) => match right {
+    match _left {
+        Literal::Number(l) => match _right {
             Literal::Number(r) => Ok(Literal::Number(l + r)),
             Literal::String(r_str) => {
                 let cast_r = r_str.parse::<f64>();
@@ -88,7 +106,7 @@ pub fn plus(expr: &Binary) -> Result<Literal, RuntimeError> {
                 ));
             }
         },
-        Literal::String(lstr) => match right {
+        Literal::String(lstr) => match _right {
             Literal::String(rstr) => Ok(Literal::String(format!("{}{}", lstr, rstr))),
             Literal::Number(rstr_num) => {
                 Ok(Literal::String(format!("{}{}", lstr, rstr_num.to_string())))
@@ -109,12 +127,21 @@ pub fn plus(expr: &Binary) -> Result<Literal, RuntimeError> {
     }
 }
 
-pub fn comparison(expr: &Binary) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate();
-    let right = expr.right.evaluate();
+pub fn comparison(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env);
+    if left.is_err() {
+        return left;
+    }
+    let right = expr.right.evaluate(env);
+    if right.is_err() {
+        return right;
+    }
 
-    match left {
-        Literal::Number(lv) => match right {
+    let _left = left.unwrap();
+    let _right = right.unwrap();
+
+    match _left {
+        Literal::Number(lv) => match _right {
             Literal::Number(rv) => match expr.op.token_type {
                 TokenType::Less => Ok(Literal::Boolean(lv < rv)),
                 TokenType::LessEqual => Ok(Literal::Boolean(lv <= rv)),
@@ -137,12 +164,21 @@ pub fn comparison(expr: &Binary) -> Result<Literal, RuntimeError> {
     }
 }
 
-pub fn eq_comparison(expr: &Binary) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate();
-    let right = expr.right.evaluate();
+pub fn eq_comparison(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env);
+    if left.is_err() {
+        return left;
+    }
+    let right = expr.right.evaluate(env);
+    if right.is_err() {
+        return right;
+    }
 
-    match left {
-        Literal::Boolean(lb) => match right {
+    let _left = left.unwrap();
+    let _right = right.unwrap();
+
+    match _left {
+        Literal::Boolean(lb) => match _right {
             Literal::Boolean(rb) => match expr.op.token_type {
                 TokenType::BangEqual => Ok(Literal::Boolean(lb != rb)),
                 TokenType::EqualEqual => Ok(Literal::Boolean(lb == rb)),
@@ -156,7 +192,7 @@ pub fn eq_comparison(expr: &Binary) -> Result<Literal, RuntimeError> {
                 0,
             )),
         },
-        Literal::Number(ln) => match right {
+        Literal::Number(ln) => match _right {
             Literal::Number(rn) => match expr.op.token_type {
                 TokenType::BangEqual => Ok(Literal::Boolean(ln != rn)),
                 TokenType::EqualEqual => Ok(Literal::Boolean(ln == rn)),
@@ -170,7 +206,7 @@ pub fn eq_comparison(expr: &Binary) -> Result<Literal, RuntimeError> {
                 0,
             )),
         },
-        Literal::String(ls) => match right {
+        Literal::String(ls) => match _right {
             Literal::String(rs) => match expr.op.token_type {
                 TokenType::BangEqual => Ok(Literal::Boolean(ls != rs)),
                 TokenType::EqualEqual => Ok(Literal::Boolean(ls == rs)),
