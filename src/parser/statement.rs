@@ -1,9 +1,8 @@
 use crate::environment::Environment;
-use crate::token::Token;
+use crate::scanner::token::Token;
 
 use super::expression::{Expr, Literal};
 use super::runtime_error::RuntimeError;
-use core::fmt;
 use core::fmt::Debug;
 
 pub trait Statement {

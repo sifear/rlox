@@ -1,9 +1,8 @@
-use std::{any::TypeId, fmt::format};
-
-use crate::{environment::Environment, token::TokenType};
+use crate::environment::Environment;
+use crate::scanner::token::TokenType;
 
 use super::{
-    expression::{Binary, Expr, Literal},
+    expression::{Binary, Literal},
     runtime_error::{RuntimeError, RuntimeErrorType},
 };
 
@@ -55,35 +54,13 @@ pub fn plus(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
     if left.is_err() {
         return left;
     }
-    let mut right = expr.right.evaluate(env);
+    let right = expr.right.evaluate(env);
     if right.is_err() {
         return right;
     }
 
     let _left = left.unwrap();
-    let _right = right.unwrap();
-
-    match _left {
-        Literal::Number(..) => match &_right {
-            Literal::String(r_str) => {
-                println!("to parse: {}", r_str);
-                let parsed = r_str.parse::<f64>();
-                match parsed {
-                    Ok(res) => {
-                        right = Ok(Literal::Number(res));
-                    }
-                    Err(..) => {
-                        return Err(RuntimeError::new(
-                            RuntimeErrorType::ArithemticInvalidOperandAfterCast,
-                            0,
-                        ));
-                    }
-                }
-            }
-            _ => {}
-        },
-        _ => {}
-    };
+    let mut _right = right.unwrap();
 
     match _left {
         Literal::Number(l) => match _right {
@@ -91,12 +68,12 @@ pub fn plus(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
             Literal::String(r_str) => {
                 let cast_r = r_str.parse::<f64>();
                 if cast_r.is_ok() {
-                    return Ok(Literal::Number(l + cast_r.unwrap()));
+                    Ok(Literal::Number(l + cast_r.unwrap()))
                 } else {
-                    return Err(RuntimeError::new(
+                    Err(RuntimeError::new(
                         RuntimeErrorType::ArithemticInvalidOperandAfterCast,
                         0,
-                    ));
+                    ))
                 }
             }
             _ => {

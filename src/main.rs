@@ -3,9 +3,8 @@ use std::{env::args, process::exit};
 
 mod dispatch;
 mod parser;
-mod scanner;
-mod token;
 mod environment;
+mod scanner;
 
 fn main() {
     let args = args().collect::<Vec<String>>();

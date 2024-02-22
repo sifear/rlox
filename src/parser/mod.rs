@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
 
 use crate::environment::Environment;
 use crate::parser::runtime_error::RuntimeErrorType;
-use crate::token::{self, Token, TokenType};
+use crate::scanner::token::{Token, TokenType};
 use expression::{Binary, Expr, Unary};
 
 use self::expression::{Empty, Grouping, Literal, Ternery, Variable};

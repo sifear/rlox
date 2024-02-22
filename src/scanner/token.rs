@@ -1,7 +1,5 @@
 use core::fmt;
 
-use crate::parser::expression::Literal;
-
 #[derive(PartialEq, Clone, Debug)]
 pub enum TokenType {
     // Single-character tokens

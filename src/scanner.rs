@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::process::exit;
 use std::str::Chars;
 
-use crate::token::Token;
-use crate::token::TokenType;
+pub mod token;
+use token::{Token, TokenType};
 
 pub struct Scanner<'a> {
     source: Peekable<Chars<'a>>,
@@ -29,7 +29,7 @@ impl<'a> Scanner<'a> {
         let tokens = match self.scan_tokens(0) {
             Ok(tokens) => {
                 self.tokens = tokens;
-            },
+            }
             Err(err) => {
                 report(1, String::from(""), &err);
                 exit(65);
@@ -73,35 +73,15 @@ impl<'a> Scanner<'a> {
 
     fn scan_token(&mut self, next_char: char) -> Result<Option<Token>, &'static str> {
         match next_char {
-            '(' => Result::Ok(Some(Token::new(
-                TokenType::LeftParen,
-                None,
-                self.line,
-            ))),
-            ')' => Result::Ok(Some(Token::new(
-                TokenType::RightParen,
-                None,
-                self.line,
-            ))),
-            '{' => Result::Ok(Some(Token::new(
-                TokenType::LeftBrace,
-                None,
-                self.line,
-            ))),
-            '}' => Result::Ok(Some(Token::new(
-                TokenType::RightBrace,
-                None,
-                self.line,
-            ))),
+            '(' => Result::Ok(Some(Token::new(TokenType::LeftParen, None, self.line))),
+            ')' => Result::Ok(Some(Token::new(TokenType::RightParen, None, self.line))),
+            '{' => Result::Ok(Some(Token::new(TokenType::LeftBrace, None, self.line))),
+            '}' => Result::Ok(Some(Token::new(TokenType::RightBrace, None, self.line))),
             ',' => Result::Ok(Some(Token::new(TokenType::Comma, None, self.line))),
             '.' => Result::Ok(Some(Token::new(TokenType::Dot, None, self.line))),
             '-' => Result::Ok(Some(Token::new(TokenType::Minus, None, self.line))),
             '+' => Result::Ok(Some(Token::new(TokenType::Plus, None, self.line))),
-            ';' => Result::Ok(Some(Token::new(
-                TokenType::Semicolon,
-                None,
-                self.line,
-            ))),
+            ';' => Result::Ok(Some(Token::new(TokenType::Semicolon, None, self.line))),
             '*' => Result::Ok(Some(Token::new(TokenType::Star, None, self.line))),
             '?' => Result::Ok(Some(Token::new(TokenType::Star, None, self.line))),
             ':' => Result::Ok(Some(Token::new(TokenType::Colon, None, self.line))),
@@ -145,7 +125,11 @@ impl<'a> Scanner<'a> {
         }
 
         if let Some(token_type) = self.reserved_token_type(&identifier_name) {
-            Ok(Some(Token::new(token_type, Some(identifier_name), self.line)))
+            Ok(Some(Token::new(
+                token_type,
+                Some(identifier_name),
+                self.line,
+            )))
         } else {
             Ok(Some(Token::new(
                 TokenType::Identifier,
@@ -250,11 +234,7 @@ impl<'a> Scanner<'a> {
 
         let float = literal.parse::<f64>().unwrap();
 
-        Ok(Some(Token::new(
-            TokenType::Number(float),
-            None,
-            self.line,
-        )))
+        Ok(Some(Token::new(TokenType::Number(float), None, self.line)))
     }
 
     fn decide_on(

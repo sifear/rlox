@@ -1,9 +1,14 @@
-use crate::{environment::Environment, token::{self, Token, TokenType}};
+use crate::{
+    environment::Environment,
+    scanner::token::{Token, TokenType},
+};
 use core::fmt;
 use core::fmt::Debug;
-use std::collections::HashMap;
 
-use super::{evaluate::{arithmetic, comparison, eq_comparison, plus}, runtime_error::{RuntimeError, RuntimeErrorType}};
+use super::{
+    evaluate::{arithmetic, comparison, eq_comparison, plus},
+    runtime_error::{RuntimeError, RuntimeErrorType},
+};
 
 pub trait Expr {
     fn to_string(&self) -> String;
@@ -122,17 +127,12 @@ impl Expr for Unary {
             TokenType::Minus => {
                 let ampl = self.right.evaluate(env);
                 match ampl {
-                    Ok(res) => {
-                        match res {
-                            Literal::Number(n) => Ok(Literal::Number(-1.0 * n)),
-                            _ => {
-                                Err(RuntimeError::new(RuntimeErrorType::Unknown, 0))
-                            }
-                        }
+                    Ok(res) => match res {
+                        Literal::Number(n) => Ok(Literal::Number(-1.0 * n)),
+                        _ => Err(RuntimeError::new(RuntimeErrorType::Unknown, 0)),
                     },
-                    Err(err) => Err(err)
+                    Err(err) => Err(err),
                 }
-               
             }
             TokenType::Bang => {
                 let a = self.right.evaluate(env);
@@ -142,9 +142,8 @@ impl Expr for Unary {
 
                         Ok(Literal::Boolean(!ampl))
                     }
-                    Err(err) => Err(err)
+                    Err(err) => Err(err),
                 }
-
             }
             _ => {
                 panic!("Unexpected operator token type while evaluating unary.")
@@ -157,7 +156,7 @@ impl Expr for Binary {
     fn to_string(&self) -> String {
         format!("({} {} {})", self.op, self.left, self.right)
     }
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>  {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus | TokenType::Star | TokenType::Slash => {
                 let res = arithmetic(self, &env);
@@ -226,7 +225,7 @@ impl Expr for Grouping {
         return cucc;
     }
 
-    fn evaluate(&self, env: &Environment) ->  Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         self.exprs.iter().map(|a| a.evaluate(env)).last().unwrap()
     }
 }
@@ -240,18 +239,19 @@ fn is_truthy(literal: Literal) -> bool {
 }
 
 impl Expr for Variable {
-    fn evaluate(&self, env: &Environment) ->  Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         match &self.name.lexeme {
             Some(name) => {
                 let a = env.get(name);
                 match a {
                     Some(b) => Ok(b.clone()),
-                    None => Err(RuntimeError::new(RuntimeErrorType::IdentifierNotDefined, 0))
+                    None => Err(RuntimeError::new(RuntimeErrorType::IdentifierNotDefined, 0)),
                 }
-            },
-            None => {
-               Err(RuntimeError::new(RuntimeErrorType::IdentifierTokenNotSaved, 0))
             }
+            None => Err(RuntimeError::new(
+                RuntimeErrorType::IdentifierTokenNotSaved,
+                0,
+            )),
         }
     }
     fn to_string(&self) -> String {

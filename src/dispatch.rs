@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::{self, Read};
 
-use crate::parser::expression::Expr;
 use crate::parser::Parser;
 
 pub fn run_file(path: &String) {
