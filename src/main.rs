@@ -5,6 +5,7 @@ mod dispatch;
 mod parser;
 mod environment;
 mod scanner;
+mod interpreter;
 
 fn main() {
     let args = args().collect::<Vec<String>>();

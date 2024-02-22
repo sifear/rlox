@@ -44,42 +44,27 @@ pub mod statement;
 pub struct Parser<'a> {
     current: u32,
     tokens: &'a Vec<Token>,
-    statements: Vec<Box<dyn Statement>>,
-    env: Environment,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &Vec<Token>) -> Parser {
-        Parser {
-            current: 0,
-            tokens,
-            statements: vec![],
-            env: Environment {
-                values: HashMap::new(),
-            },
-        }
+        Parser { current: 0, tokens }
     }
 
-    pub fn interpret(&mut self) {
-        self.parse();
+    pub fn parse(&mut self) -> Vec<Box<dyn Statement>> {
+        let mut statements = vec![];
 
-        println!("{:?}", self.statements);
-
-        for stmt in &self.statements {
-            stmt.evaluate(&mut self.env);
-        }
-    }
-
-    pub fn parse(&mut self) {
         while self.current < ((*self.tokens).len() - 1) as u32 {
             match self.statement() {
-                Ok(stmt) => self.statements.push(stmt),
+                Ok(stmt) => statements.push(stmt),
                 Err(err) => {
                     println!("{}", err);
                     self.syncronize();
                 }
             }
         }
+
+        statements
     }
 
     pub fn statement(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {

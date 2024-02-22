@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{self, Read};
 
+use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 
 pub fn run_file(path: &String) {
@@ -14,7 +15,10 @@ pub fn run_file(path: &String) {
     scanner.run();
 
     let mut parser = Parser::new(&scanner.tokens);
-    parser.interpret();
+    let statements = parser.parse();
+
+    let mut interpreter = Interpreter::new(statements);
+    interpreter.interpret();
 }
 
 pub fn run_prompt() {
@@ -31,6 +35,8 @@ pub fn run_prompt() {
         scanner.run();
 
         let mut parser = Parser::new(&scanner.tokens);
-        parser.interpret();
+        let statements = parser.parse();
+        let mut interpreter = Interpreter::new(statements);
+        interpreter.interpret();
     }
 }
