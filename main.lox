@@ -1,4 +1,3 @@
 var a = 1;
-var b = "10";
-de
-print a + b;
+var b = a = 2;
+print b;

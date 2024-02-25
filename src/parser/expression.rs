@@ -1,16 +1,22 @@
 use crate::{
     environment::Environment,
-    interpreter::runtime_error::{RuntimeError, RuntimeErrorType},
+    interpreter::{
+        is_variable::as_variable,
+        runtime_error::{RuntimeError, RuntimeErrorType},
+    },
     scanner::token::{Token, TokenType},
 };
 use core::fmt;
 use core::fmt::Debug;
+use std::any::{Any, TypeId};
 
 use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
 
 pub trait Expr {
     fn to_string(&self) -> String;
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>;
+    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError>;
+    fn my_type(&self) -> i32;
+    fn as_any(&self) -> &dyn Any;
 }
 
 impl Debug for dyn Expr {
@@ -49,6 +55,11 @@ pub struct Variable {
     pub name: Token,
 }
 
+pub struct Assign {
+    pub l_value: Token,
+    pub value: Box<dyn Expr>,
+}
+
 impl Unary {
     pub fn new(right: Box<dyn Expr>, op: Token) -> Unary {
         Unary { right, op }
@@ -77,8 +88,15 @@ impl Expr for Empty {
         format!("<Discarded expression>")
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
         return Ok(Literal::Null);
+    }
+
+    fn my_type(&self) -> i32 {
+        0
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -94,8 +112,15 @@ impl Expr for Ternery {
         return cucc;
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
         return Ok(Literal::Null);
+    }
+
+    fn my_type(&self) -> i32 {
+        1
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -110,8 +135,16 @@ impl Expr for Literal {
         }
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
         return Ok(self.clone());
+    }
+
+    fn my_type(&self) -> i32 {
+        2
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -120,7 +153,7 @@ impl Expr for Unary {
         format!("({} {})", self.op, self.right)
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus => {
                 let ampl = self.right.evaluate(env);
@@ -148,16 +181,24 @@ impl Expr for Unary {
             }
         }
     }
+
+    fn my_type(&self) -> i32 {
+        3
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Expr for Binary {
     fn to_string(&self) -> String {
         format!("({} {} {})", self.op, self.left, self.right)
     }
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus | TokenType::Star | TokenType::Slash => {
-                let res = arithmetic(self, &env);
+                let res = arithmetic(self, env);
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -168,7 +209,7 @@ impl Expr for Binary {
                 }
             }
             TokenType::Plus => {
-                let res = plus(&self, &env);
+                let res = plus(&self, env);
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -182,7 +223,7 @@ impl Expr for Binary {
             | TokenType::LessEqual
             | TokenType::Greater
             | TokenType::GreaterEqual => {
-                let res = comparison(self, &env);
+                let res = comparison(self, env);
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -193,7 +234,7 @@ impl Expr for Binary {
                 }
             }
             TokenType::BangEqual | TokenType::EqualEqual => {
-                let res = eq_comparison(self, &env);
+                let res = eq_comparison(self, env);
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -205,6 +246,14 @@ impl Expr for Binary {
             }
             _ => Ok(Literal::Null),
         }
+    }
+
+    fn my_type(&self) -> i32 {
+        4
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -223,8 +272,16 @@ impl Expr for Grouping {
         return cucc;
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
         self.exprs.iter().map(|a| a.evaluate(env)).last().unwrap()
+    }
+
+    fn my_type(&self) -> i32 {
+        5
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -237,13 +294,16 @@ fn is_truthy(literal: Literal) -> bool {
 }
 
 impl Expr for Variable {
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
         match &self.name.lexeme {
             Some(name) => {
                 let a = env.get(name);
                 match a {
                     Some(b) => Ok(b.clone()),
-                    None => Err(RuntimeError::new(RuntimeErrorType::IdentifierNotDefined, self.name.line)),
+                    None => Err(RuntimeError::new(
+                        RuntimeErrorType::IdentifierNotDefined,
+                        self.name.line,
+                    )),
                 }
             }
             None => Err(RuntimeError::new(
@@ -252,7 +312,59 @@ impl Expr for Variable {
             )),
         }
     }
+
     fn to_string(&self) -> String {
         format!("(VAR {})", self.name.lexeme.clone().take().unwrap())
+    }
+
+    fn my_type(&self) -> i32 {
+        6
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Expr for Assign {
+    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+        let val = self.value.evaluate(env);
+        let _val = match val {
+            Ok(v) => v,
+            Err(err) => {
+                println!("Error while evaluating right hand side of assignment.");
+                Literal::Null
+            }
+        };
+
+        match &self.l_value.lexeme {
+            Some(a) => {
+                let success = env.assign(&a, &_val);
+                if success {
+                    Ok(_val)
+                } else {
+                    Err(RuntimeError::new(
+                        RuntimeErrorType::IdentifierNotDefined,
+                        self.l_value.line,
+                    ))
+                }
+            }
+            None => Err(RuntimeError::new(
+                RuntimeErrorType::IdentifierNotDefined,
+                self.l_value.line,
+            )),
+        }
+    }
+
+    fn to_string(&self) -> String {
+        "".to_string()
+    }
+
+    fn my_type(&self) -> i32 {
+        7
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

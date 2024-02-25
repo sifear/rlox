@@ -14,6 +14,7 @@ pub enum RuntimeErrorType {
     IdentifierExpedcted,
     IdentifierNotDefined,
     IdentifierTokenNotSaved,
+    InvalidAssignmentTarget,
     Unknown
 }
 
@@ -88,6 +89,11 @@ impl fmt::Display for RuntimeError {
             RuntimeErrorType::IdentifierTokenNotSaved => write!(
                 f,
                 "Identifier token not saved at line {}",
+                self.line
+            ),
+            RuntimeErrorType::InvalidAssignmentTarget => write!(
+                f,
+                "Invalid assignment target at line {}",
                 self.line
             ),
             RuntimeErrorType::Unknown => write!(

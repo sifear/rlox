@@ -1,8 +1,11 @@
+use std::any::{Any, TypeId};
+
+use crate::interpreter::is_variable::as_variable;
 use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
 use crate::scanner::token::{Token, TokenType};
 use expression::{Binary, Expr, Unary};
 
-use self::expression::{Empty, Grouping, Literal, Ternery, Variable};
+use self::expression::{Assign, Empty, Grouping, Literal, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
 use self::statement::{ExprStmt, PrintStmt, Statement, VarStmt};
 
@@ -25,7 +28,10 @@ pub mod statement;
 // exprStmt       → expression ";" ;
 // printStmt      → "print" expression ";" ;
 
-// expression     → equality ( "?" exression ":" expression )*
+// expression     → equality ( "?" exression ":" expression )* ;
+//                | assignment ;
+// assignment     → expression "=" assignment
+//                | equality ;
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term           → factor ( ( "-" | "+" ) factor )* ;
@@ -132,11 +138,12 @@ impl<'a> Parser<'a> {
             None => {}
         };
 
-        let res = self.consume(&TokenType::Semicolon);
-        match res {
-            Ok(token) => Ok(Box::new(VarStmt {
+        let semi = self.consume(&TokenType::Semicolon);
+
+        match semi {
+            Ok(_) => Ok(Box::new(VarStmt {
                 initializer,
-                name: token,
+                name: res.unwrap(),
             })),
             Err(err) => Err(RuntimeError::new(
                 RuntimeErrorType::StatementExpected,
@@ -182,7 +189,7 @@ impl<'a> Parser<'a> {
             None => {}
         }
 
-        let expr = self.equality();
+        let expr = self.assignment();
 
         match errorous_binary_pos {
             Some(pos) => return Result::Ok(Box::new(Empty {})),
@@ -191,17 +198,26 @@ impl<'a> Parser<'a> {
 
         match self._match_(&[TokenType::QuestionMark]) {
             Some(a) => {
-                let true_arm = self.expression();
+                let true_arm = self.equality();
                 if true_arm.is_err() {
-                    return Err(ParserError::new(ParserErrorType::PredicateMissingTrue, a.line));
+                    return Err(ParserError::new(
+                        ParserErrorType::PredicateMissingTrue,
+                        a.line,
+                    ));
                 }
                 let res = self.consume(&TokenType::Colon);
                 if res.is_err() {
-                    return Err(ParserError::new(ParserErrorType::PredicateMissingFalse, a.line));
+                    return Err(ParserError::new(
+                        ParserErrorType::PredicateMissingFalse,
+                        a.line,
+                    ));
                 }
-                let false_arm = self.expression();
+                let false_arm = self.equality();
                 if false_arm.is_err() {
-                    return Err(ParserError::new(ParserErrorType::ExpressionExpected, a.line));
+                    return Err(ParserError::new(
+                        ParserErrorType::ExpressionExpected,
+                        a.line,
+                    ));
                 }
 
                 let ternery = Result::<Box<dyn Expr>, ParserError>::Ok(Box::new(Ternery {
@@ -216,6 +232,44 @@ impl<'a> Parser<'a> {
         };
 
         expr
+    }
+
+    fn assignment(&mut self) -> Result<Box<dyn Expr>, ParserError> {
+        let res = self.equality();
+        if res.is_err() {
+            return res;
+        }
+
+        match self._match_(&[TokenType::Equal]) {
+            Some(a) => {
+                let value = self.assignment();
+                if value.is_err() {
+                    return value;
+                }
+
+                let _res = res.unwrap();
+
+                match as_variable(_res.as_any()) {
+                    Some(va) => {
+                        return Ok(Box::new(Assign {
+                            l_value: va.name,
+                            value: value.unwrap(),
+                        }));
+                    }
+                    None => {
+                        report(a.line, "Invalid assignment target. parser");
+
+                        return Err(ParserError::new(
+                            ParserErrorType::PredicateMissingTrue,
+                            a.line,
+                        ));
+                    }
+                }
+            }
+            None => {}
+        }
+
+        res
     }
 
     fn equality(&mut self) -> Result<Box<dyn Expr>, ParserError> {
@@ -377,7 +431,19 @@ impl<'a> Parser<'a> {
         };
 
         match self._match_(&[TokenType::Identifier]) {
-            Some(token) => return Result::Ok(Box::new(Variable { name: token })),
+            Some(token) => {
+                let variable = Variable { name: token };
+                println!("aaa {:?}", variable.type_id());
+                println!("aaa {:?}", TypeId::of::<Empty>());
+                println!("aaa {:?}", TypeId::of::<Ternery>());
+                println!("aaa {:?}", TypeId::of::<Literal>());
+                println!("aaa {:?}", TypeId::of::<Unary>());
+                println!("aaa {:?}", TypeId::of::<Binary>());
+                println!("aaa {:?}", TypeId::of::<Variable>());
+                println!("aaa {:?}", TypeId::of::<Assign>());
+                println!("aaa {:?}", TypeId::of::<Grouping>());
+                return Result::Ok(Box::new(variable));
+            }
             None => {}
         };
 
@@ -431,7 +497,7 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
-            },
+            }
             None => {
                 println!("in grouping");
                 Err(ParserError::new(ParserErrorType::ExpressionExpected, 0))
@@ -552,6 +618,6 @@ impl<'a> Parser<'a> {
     }
 }
 
-fn report(line_number: u32, location: String, message: &str) {
-    println!("[line {}] Error {}: {}", line_number, location, message);
+fn report(line_number: u32, message: &str) {
+    println!("[line {}] Error: {}", line_number, message);
 }

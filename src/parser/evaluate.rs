@@ -4,12 +4,12 @@ use crate::scanner::token::TokenType;
 
 use super::expression::{Binary, Literal};
 
-pub fn arithmetic(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate(&env);
+pub fn arithmetic(expr: &Binary, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env);
     if left.is_err() {
         return left;
     }
-    let right = expr.right.evaluate(&env);
+    let right = expr.right.evaluate(env);
     if right.is_err() {
         return right;
     }
@@ -47,7 +47,7 @@ pub fn arithmetic(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeEr
     }
 }
 
-pub fn plus(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+pub fn plus(expr: &Binary, env: &mut Environment) -> Result<Literal, RuntimeError> {
     let left = expr.left.evaluate(env);
     if left.is_err() {
         return left;
@@ -102,7 +102,7 @@ pub fn plus(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
     }
 }
 
-pub fn comparison(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+pub fn comparison(expr: &Binary, env: &mut Environment) -> Result<Literal, RuntimeError> {
     let left = expr.left.evaluate(env);
     if left.is_err() {
         return left;
@@ -139,7 +139,7 @@ pub fn comparison(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeEr
     }
 }
 
-pub fn eq_comparison(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+pub fn eq_comparison(expr: &Binary, env: &mut Environment) -> Result<Literal, RuntimeError> {
     let left = expr.left.evaluate(env);
     if left.is_err() {
         return left;

@@ -34,7 +34,7 @@ impl Statement for ExprStmt {
     }
 
     fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
-        self.expr.evaluate(&env)
+        self.expr.evaluate(env)
     }
 }
 impl Statement for PrintStmt {
@@ -43,7 +43,7 @@ impl Statement for PrintStmt {
     }
 
     fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
-        let res = self.expr.evaluate(&env);
+        let res = self.expr.evaluate(env);
         if res.is_err() {
             return res;
         }
@@ -61,7 +61,7 @@ impl Statement for VarStmt {
 
     fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
         let initial_value = match &self.initializer {
-            Some(initer) => initer.evaluate(&env),
+            Some(initer) => initer.evaluate(env),
             None => Ok(Literal::Null),
         };
 

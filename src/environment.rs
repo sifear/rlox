@@ -11,6 +11,17 @@ impl Environment {
         self.values.insert(identifier, value);
     }
 
+    pub fn assign(&mut self, identifier: &String, value: &Literal) -> bool {
+        match self.values.get(identifier) {
+            Some(val) => {
+                self.values.insert(identifier.clone(), value.clone());
+
+                true
+            }
+            None => false,
+        }
+    }
+
     pub fn get(&self, identifier: &String) -> Option<&Literal> {
         self.values.get(identifier)
     }
