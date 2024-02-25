@@ -1,19 +1,14 @@
-use std::collections::HashMap;
-
-use crate::environment::Environment;
-use crate::parser::runtime_error::RuntimeErrorType;
+use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
 use crate::scanner::token::{Token, TokenType};
 use expression::{Binary, Expr, Unary};
 
 use self::expression::{Empty, Grouping, Literal, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
-use self::runtime_error::RuntimeError;
 use self::statement::{ExprStmt, PrintStmt, Statement, VarStmt};
 
 pub mod evaluate;
 pub mod expression;
 pub mod parser_error;
-pub mod runtime_error;
 pub mod statement;
 
 // program        → statement* EOF
@@ -93,7 +88,7 @@ impl<'a> Parser<'a> {
                     Err(a) => {
                         return Err(RuntimeError::new(
                             RuntimeErrorType::StatementMissingSemicolon,
-                            0,
+                            a.line,
                         ))
                     }
                 }
@@ -101,7 +96,10 @@ impl<'a> Parser<'a> {
             Err(err) => {
                 println!("{}", err);
 
-                Err(RuntimeError::new(RuntimeErrorType::StatementExpected, 0))
+                Err(RuntimeError::new(
+                    RuntimeErrorType::StatementExpected,
+                    err.line,
+                ))
             }
         }
     }
@@ -126,7 +124,7 @@ impl<'a> Parser<'a> {
 
                         return Err(RuntimeError::new(
                             RuntimeErrorType::VarInitializerExpected,
-                            0,
+                            err.line,
                         ));
                     }
                 };
@@ -134,12 +132,17 @@ impl<'a> Parser<'a> {
             None => {}
         };
 
-        self.consume(&TokenType::Semicolon);
-
-        Ok(Box::new(VarStmt {
-            initializer,
-            name: res.unwrap(),
-        }))
+        let res = self.consume(&TokenType::Semicolon);
+        match res {
+            Ok(token) => Ok(Box::new(VarStmt {
+                initializer,
+                name: token,
+            })),
+            Err(err) => Err(RuntimeError::new(
+                RuntimeErrorType::StatementExpected,
+                err.line,
+            )),
+        }
     }
 
     pub fn print_stmt(&mut self) -> Result<Box<PrintStmt>, RuntimeError> {
@@ -152,7 +155,7 @@ impl<'a> Parser<'a> {
                     Err(a) => {
                         return Err(RuntimeError::new(
                             RuntimeErrorType::StatementMissingSemicolon,
-                            0,
+                            a.line,
                         ))
                     }
                 }
@@ -170,7 +173,10 @@ impl<'a> Parser<'a> {
         match self._match_(&[TokenType::Slash, TokenType::Star]) {
             Some(token) => {
                 errorous_binary_pos = Some(self.current);
-                println!("Binary operand is missng left hand side at line {}", 0)
+                println!(
+                    "Binary operand is missing left hand side at line {}",
+                    token.line
+                )
                 // return Err(ParserError::new(ParserErrorType::BinaryMissingLHS, 0))
             }
             None => {}
@@ -184,18 +190,18 @@ impl<'a> Parser<'a> {
         };
 
         match self._match_(&[TokenType::QuestionMark]) {
-            Some(_) => {
+            Some(a) => {
                 let true_arm = self.expression();
                 if true_arm.is_err() {
-                    return Err(ParserError::new(ParserErrorType::PredicateMissingTrue, 0));
+                    return Err(ParserError::new(ParserErrorType::PredicateMissingTrue, a.line));
                 }
                 let res = self.consume(&TokenType::Colon);
                 if res.is_err() {
-                    return Err(ParserError::new(ParserErrorType::PredicateMissingFalse, 0));
+                    return Err(ParserError::new(ParserErrorType::PredicateMissingFalse, a.line));
                 }
                 let false_arm = self.expression();
                 if false_arm.is_err() {
-                    return Err(ParserError::new(ParserErrorType::ExpressionExpected, 0));
+                    return Err(ParserError::new(ParserErrorType::ExpressionExpected, a.line));
                 }
 
                 let ternery = Result::<Box<dyn Expr>, ParserError>::Ok(Box::new(Ternery {
@@ -408,31 +414,27 @@ impl<'a> Parser<'a> {
                                 grouping.exprs.push(right.unwrap());
                                 let res = self.consume(&TokenType::RightParen);
                                 match res {
-                                    Ok(_) => {
-                                        return Result::Ok(Box::new(grouping));
-                                    }
-                                    Err(_) => {
-                                        return Err(ParserError::new(
-                                            ParserErrorType::ExpressionListExpected,
-                                            0,
-                                        ))
-                                    }
+                                    Ok(_) => Result::Ok(Box::new(grouping)),
+                                    Err(err) => Err(ParserError::new(
+                                        ParserErrorType::ExpressionListExpected,
+                                        err.line,
+                                    )),
                                 }
                             }
                         }
                         None => {
                             let res = self.consume(&TokenType::RightParen);
                             match res {
-                                Ok(_) => return Result::Ok(Box::new(grouping)),
-                                Err(error) => return Err(error),
+                                Ok(_) => Result::Ok(Box::new(grouping)),
+                                Err(error) => Err(error),
                             }
                         }
                     }
                 }
-            }
-            _ => {
+            },
+            None => {
                 println!("in grouping");
-                return Err(ParserError::new(ParserErrorType::ExpressionExpected, 0));
+                Err(ParserError::new(ParserErrorType::ExpressionExpected, 0))
             }
         }
     }

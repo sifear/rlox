@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use crate::{environment::Environment, parser::statement::Statement};
 
+pub mod runtime_error; 
+
 pub struct Interpreter {
     statements: Vec<Box<dyn Statement>>,
     env: Environment,

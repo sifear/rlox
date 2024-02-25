@@ -2,7 +2,7 @@ use crate::environment::Environment;
 use crate::scanner::token::Token;
 
 use super::expression::{Expr, Literal};
-use super::runtime_error::RuntimeError;
+use crate::interpreter::runtime_error::RuntimeError;
 use core::fmt::Debug;
 
 pub trait Statement {

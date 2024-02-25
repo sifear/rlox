@@ -67,7 +67,7 @@ impl fmt::Display for RuntimeError {
             ),
             RuntimeErrorType::StatementMissingSemicolon => write!(
                 f,
-                "Missing semicolonh after statement {}",
+                "Missing semicolon after line {}",
                 self.line
             ),
             RuntimeErrorType::VarInitializerExpected => write!(

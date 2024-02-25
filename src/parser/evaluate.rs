@@ -1,10 +1,8 @@
 use crate::environment::Environment;
+use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
 use crate::scanner::token::TokenType;
 
-use super::{
-    expression::{Binary, Literal},
-    runtime_error::{RuntimeError, RuntimeErrorType},
-};
+use super::expression::{Binary, Literal};
 
 pub fn arithmetic(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
     let left = expr.left.evaluate(&env);

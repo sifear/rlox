@@ -1,14 +1,12 @@
 use crate::{
     environment::Environment,
+    interpreter::runtime_error::{RuntimeError, RuntimeErrorType},
     scanner::token::{Token, TokenType},
 };
 use core::fmt;
 use core::fmt::Debug;
 
-use super::{
-    evaluate::{arithmetic, comparison, eq_comparison, plus},
-    runtime_error::{RuntimeError, RuntimeErrorType},
-};
+use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
 
 pub trait Expr {
     fn to_string(&self) -> String;
@@ -245,7 +243,7 @@ impl Expr for Variable {
                 let a = env.get(name);
                 match a {
                     Some(b) => Ok(b.clone()),
-                    None => Err(RuntimeError::new(RuntimeErrorType::IdentifierNotDefined, 0)),
+                    None => Err(RuntimeError::new(RuntimeErrorType::IdentifierNotDefined, self.name.line)),
                 }
             }
             None => Err(RuntimeError::new(

@@ -21,7 +21,7 @@ impl<'a> Scanner<'a> {
             source: input_chars,
             had_errors: false,
             tokens: vec![],
-            line: 1,
+            line: 0,
         }
     }
 

@@ -13,7 +13,7 @@ pub enum ParserErrorType {
 #[derive(Debug)]
 pub struct ParserError {
     error_type: ParserErrorType,
-    line: u32,
+    pub line: u32,
 }
 
 impl ParserError {
