@@ -4,9 +4,10 @@ use crate::scanner::token::Token;
 use super::expression::{Expr, Literal};
 use crate::interpreter::runtime_error::RuntimeError;
 use core::fmt::Debug;
+use std::{borrow::BorrowMut, collections::HashMap};
 
 pub trait Statement {
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError>;
+    fn evaluate<'a>(&self, env: &'a mut Environment<'a>) -> Result<Literal, RuntimeError>;
     fn to_string(&self) -> String;
 }
 
@@ -23,9 +24,42 @@ pub struct PrintStmt {
     pub expr: Box<dyn Expr>,
 }
 
+pub struct BlockStmt {
+    pub stmts: Vec<Box<dyn Statement>>,
+}
+
 pub struct VarStmt {
     pub initializer: Option<Box<dyn Expr>>,
     pub name: Token,
+}
+
+impl Statement for BlockStmt {
+    fn to_string(&self) -> String {
+        format!("<Block stmt>")
+    }
+
+    fn evaluate<'a>(&self, env: &'a mut Environment<'a>) -> Result<Literal, RuntimeError> {
+        let mut last_value = Literal::Null;
+        let mut local_env: Environment<'_> = Environment {
+            values: HashMap::new(),
+            enclosing: Some(env),
+        };
+        let b = &mut local_env;
+
+        for statement in self.stmts.iter() {
+            let res = statement.evaluate(b);
+            match res {
+                Ok(val) => {
+                    last_value = val;
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+        }
+
+        Ok(last_value)
+    }
 }
 
 impl Statement for ExprStmt {

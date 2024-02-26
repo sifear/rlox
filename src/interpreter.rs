@@ -2,25 +2,26 @@ use std::collections::HashMap;
 
 use crate::{environment::Environment, parser::statement::Statement};
 
-pub mod runtime_error; 
 pub mod is_variable;
+pub mod runtime_error;
 
-pub struct Interpreter {
+pub struct Interpreter<'a> {
     statements: Vec<Box<dyn Statement>>,
-    env: Environment,
+    env: Environment<'a>,
 }
 
-impl Interpreter {
-    pub fn new(statements: Vec<Box<dyn Statement>>) -> Interpreter {
+impl<'a> Interpreter<'a> {
+    pub fn new(statements: Vec<Box<dyn Statement>>) -> Interpreter<'a> {
         Interpreter {
             statements,
             env: Environment {
                 values: HashMap::new(),
+                enclosing: None,
             },
         }
     }
 
-    pub fn interpret(&mut self) {
+    pub fn interpret(&'a mut self) {
         println!("{:?}", self.statements);
 
         for stmt in &self.statements {

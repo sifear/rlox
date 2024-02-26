@@ -7,7 +7,7 @@ use expression::{Binary, Expr, Unary};
 
 use self::expression::{Assign, Empty, Grouping, Literal, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
-use self::statement::{ExprStmt, PrintStmt, Statement, VarStmt};
+use self::statement::{BlockStmt, ExprStmt, PrintStmt, Statement, VarStmt};
 
 pub mod evaluate;
 pub mod expression;
@@ -24,6 +24,9 @@ pub mod statement;
 
 // statement      → exprStmt
 //                | printStmt ;
+//                | block ;
+
+// block          → "{" declaration* "}" ;
 
 // exprStmt       → expression ";" ;
 // printStmt      → "print" expression ";" ;
@@ -85,6 +88,17 @@ impl<'a> Parser<'a> {
             None => {}
         };
 
+        match self._match_(&[TokenType::LeftBrace]) {
+            Some(token) => {
+                let statements = self.block_stmt();
+                match statements {
+                    Ok(stmts) => return Ok(Box::new(BlockStmt { stmts })),
+                    Err(err) => return Err(err),
+                }
+            }
+            None => {}
+        };
+
         let expr = self.expression();
         match expr {
             Ok(expr) => {
@@ -108,6 +122,40 @@ impl<'a> Parser<'a> {
                 ))
             }
         }
+    }
+
+    pub fn block_stmt(&mut self) -> Result<Vec<Box<dyn Statement>>, RuntimeError> {
+        let mut statements: Vec<Box<dyn Statement>> = vec![];
+
+        loop {
+            if self.check(&TokenType::LeftBrace) {
+                break;
+            }
+
+            let res = self.var_declaration();
+            match res {
+                Ok(stmt) => {
+                    statements.push(stmt);
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+        }
+
+        let res = self.consume(&TokenType::LeftBrace);
+        match res {
+            Ok(_) => {}
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(
+                    RuntimeErrorType::Unknown,
+                    err.line,
+                ));
+            }
+        }
+
+        Ok(statements)
     }
 
     pub fn var_declaration(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
