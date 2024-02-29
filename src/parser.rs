@@ -481,15 +481,6 @@ impl<'a> Parser<'a> {
         match self._match_(&[TokenType::Identifier]) {
             Some(token) => {
                 let variable = Variable { name: token };
-                println!("aaa {:?}", variable.type_id());
-                println!("aaa {:?}", TypeId::of::<Empty>());
-                println!("aaa {:?}", TypeId::of::<Ternery>());
-                println!("aaa {:?}", TypeId::of::<Literal>());
-                println!("aaa {:?}", TypeId::of::<Unary>());
-                println!("aaa {:?}", TypeId::of::<Binary>());
-                println!("aaa {:?}", TypeId::of::<Variable>());
-                println!("aaa {:?}", TypeId::of::<Assign>());
-                println!("aaa {:?}", TypeId::of::<Grouping>());
                 return Result::Ok(Box::new(variable));
             }
             None => {}

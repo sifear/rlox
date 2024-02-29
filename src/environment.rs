@@ -1,27 +1,29 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 
 use crate::parser::expression::Literal;
 
 pub struct Environment<'a> {
-    pub values: HashMap<String, Literal>,
-    pub enclosing: Option<&'a mut Environment<'a>>,
+    pub values: RefCell<HashMap<String, Literal>>,
+    pub enclosing: Option<&'a Environment<'a>>,
 }
 
 impl<'a> Environment<'a> {
-    pub fn define(&mut self, identifier: String, value: Literal) {
-        self.values.insert(identifier, value);
+    pub fn define(&self, identifier: String, value: Literal) {
+        self.values.borrow_mut().insert(identifier, value);
     }
 
-    pub fn assign(&mut self, identifier: &String, value: &Literal) -> bool {
-        match self.values.get(identifier) {
+    pub fn assign(&self, identifier: &String, value: &Literal) -> bool {
+        let mut a = self.values.borrow_mut();
+
+        match a.get(identifier) {
             Some(val) => {
-                self.values.insert(identifier.clone(), value.clone());
+                a.insert(identifier.clone(), value.clone());
 
                 true
             }
-            None => match &mut self.enclosing {
+            None => match self.enclosing {
                 Some(enclosing) => {
-                    enclosing.values.insert(identifier.clone(), value.clone());
+                    enclosing.values.borrow_mut().insert(identifier.clone(), value.clone());
 
                     return true;
                 }
@@ -30,10 +32,15 @@ impl<'a> Environment<'a> {
         }
     }
 
-    pub fn get(&self, identifier: &String) -> Option<&Literal> {
-        let res = self.values.get(identifier);
-        if res.is_some() {
-            return res;
+    pub fn get(&self, identifier: &String) -> Option<Literal> {
+        let values = self.values.borrow_mut();
+        let res = values.get(identifier);
+
+        match res {
+            Some(_) => {
+                return res.cloned()
+            },
+            None => {}
         }
 
         if let Some(enclosing) = &self.enclosing {

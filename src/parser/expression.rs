@@ -1,20 +1,17 @@
 use crate::{
     environment::Environment,
-    interpreter::{
-        is_variable::as_variable,
-        runtime_error::{RuntimeError, RuntimeErrorType},
-    },
+    interpreter::runtime_error::{RuntimeError, RuntimeErrorType},
     scanner::token::{Token, TokenType},
 };
 use core::fmt;
 use core::fmt::Debug;
-use std::{any::{Any, TypeId}, borrow::BorrowMut};
+use std::any::Any;
 
 use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
 
 pub trait Expr {
     fn to_string(&self) -> String;
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError>;
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>;
     fn my_type(&self) -> i32;
     fn as_any(&self) -> &dyn Any;
 }
@@ -88,7 +85,7 @@ impl Expr for Empty {
         format!("<Discarded expression>")
     }
 
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         return Ok(Literal::Null);
     }
 
@@ -112,7 +109,7 @@ impl Expr for Ternery {
         return cucc;
     }
 
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         return Ok(Literal::Null);
     }
 
@@ -135,7 +132,7 @@ impl Expr for Literal {
         }
     }
 
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         return Ok(self.clone());
     }
 
@@ -153,7 +150,7 @@ impl Expr for Unary {
         format!("({} {})", self.op, self.right)
     }
 
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus => {
                 let ampl = self.right.evaluate(env);
@@ -195,7 +192,7 @@ impl Expr for Binary {
     fn to_string(&self) -> String {
         format!("({} {} {})", self.op, self.left, self.right)
     }
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus | TokenType::Star | TokenType::Slash => {
                 let res = arithmetic(self, env);
@@ -272,7 +269,7 @@ impl Expr for Grouping {
         return cucc;
     }
 
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         self.exprs.iter().map(|a| a.evaluate(env)).last().unwrap()
     }
 
@@ -294,7 +291,7 @@ fn is_truthy(literal: Literal) -> bool {
 }
 
 impl Expr for Variable {
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         match &self.name.lexeme {
             Some(name) => {
                 let a = env.get(name);
@@ -327,7 +324,7 @@ impl Expr for Variable {
 }
 
 impl Expr for Assign {
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         let val = self.value.evaluate(env);
         let _val = match val {
             Ok(v) => v,

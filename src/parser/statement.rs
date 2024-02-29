@@ -4,10 +4,10 @@ use crate::scanner::token::Token;
 use super::expression::{Expr, Literal};
 use crate::interpreter::runtime_error::RuntimeError;
 use core::fmt::Debug;
-use std::{borrow::BorrowMut, collections::HashMap};
+use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap};
 
 pub trait Statement {
-    fn evaluate<'a>(&self, env: &'a mut Environment<'a>) -> Result<Literal, RuntimeError>;
+    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError>;
     fn to_string(&self) -> String;
 }
 
@@ -38,16 +38,15 @@ impl Statement for BlockStmt {
         format!("<Block stmt>")
     }
 
-    fn evaluate<'a>(&self, env: &'a mut Environment<'a>) -> Result<Literal, RuntimeError> {
+    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
         let mut last_value = Literal::Null;
-        let mut local_env: Environment<'_> = Environment {
-            values: HashMap::new(),
+        let local_env: Environment<'_> = Environment {
+            values: RefCell::new(HashMap::new()),
             enclosing: Some(env),
         };
-        let b = &mut local_env;
 
         for statement in self.stmts.iter() {
-            let res = statement.evaluate(b);
+            let res = statement.evaluate(&local_env);
             match res {
                 Ok(val) => {
                     last_value = val;
@@ -67,7 +66,7 @@ impl Statement for ExprStmt {
         format!("<ExprStmt stmt>")
     }
 
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         self.expr.evaluate(env)
     }
 }
@@ -76,7 +75,7 @@ impl Statement for PrintStmt {
         format!("<Print stmt>")
     }
 
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         let res = self.expr.evaluate(env);
         if res.is_err() {
             return res;
@@ -93,7 +92,7 @@ impl Statement for VarStmt {
         format!("<Var stmt>")
     }
 
-    fn evaluate(&self, env: &mut Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         let initial_value = match &self.initializer {
             Some(initer) => initer.evaluate(env),
             None => Ok(Literal::Null),

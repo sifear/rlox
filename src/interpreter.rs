@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 
 use crate::{environment::Environment, parser::statement::Statement};
 
@@ -15,7 +15,7 @@ impl<'a> Interpreter<'a> {
         Interpreter {
             statements,
             env: Environment {
-                values: HashMap::new(),
+                values: RefCell::new(HashMap::new()),
                 enclosing: None,
             },
         }
