@@ -6,6 +6,7 @@ mod parser;
 mod environment;
 mod scanner;
 mod interpreter;
+mod is_truthy;
 
 fn main() {
     let args = args().collect::<Vec<String>>();

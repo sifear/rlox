@@ -1,5 +1,5 @@
-use crate::environment::Environment;
 use crate::scanner::token::Token;
+use crate::{environment::Environment, is_truthy::is_truthy};
 
 use super::expression::{Expr, Literal};
 use crate::interpreter::runtime_error::RuntimeError;
@@ -31,6 +31,35 @@ pub struct BlockStmt {
 pub struct VarStmt {
     pub initializer: Option<Box<dyn Expr>>,
     pub name: Token,
+}
+
+pub struct IfStmt {
+    pub cond: Box<dyn Expr>,
+    pub then: Box<dyn Statement>,
+    pub els: Option<Box<dyn Statement>>,
+}
+
+impl Statement for IfStmt {
+    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
+        let cond_eval = self.cond.evaluate(env);
+        if cond_eval.is_err() {
+            println!("{}", cond_eval.unwrap_err());
+            return Ok(Literal::Null);
+        }
+
+        if is_truthy(&cond_eval.unwrap()) {
+            self.then.evaluate(env)
+        } else {
+            match &self.els {
+                Some(stmts) => stmts.evaluate(env),
+                None => Ok(Literal::Null),
+            }
+        }
+    }
+
+    fn to_string(&self) -> String {
+        format!("<If stmt>")
+    }
 }
 
 impl Statement for BlockStmt {
@@ -94,16 +123,19 @@ impl Statement for VarStmt {
 
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         let initial_value = match &self.initializer {
-            Some(initer) => initer.evaluate(env),
-            None => Ok(Literal::Null),
+            Some(initer) => {
+                let res = initer.evaluate(env);
+                if res.is_err() {
+                    return res;
+                }
+
+                Some(res.unwrap())
+            }
+            None => None,
         };
 
-        if initial_value.is_err() {
-            return initial_value;
-        }
-
         match &self.name.lexeme {
-            Some(name) => env.define(name.clone(), initial_value.unwrap()),
+            Some(name) => env.define(name.clone(), initial_value),
             None => {
                 // Runtime exception?
             }

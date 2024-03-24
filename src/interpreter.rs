@@ -25,7 +25,12 @@ impl<'a> Interpreter<'a> {
         println!("{:?}", self.statements);
 
         for stmt in &self.statements {
-            stmt.evaluate(&mut self.env);
+            match stmt.evaluate(&mut self.env) {
+                Ok(value) => {},
+                Err(err) => {
+                    println!("{err}")
+                }
+            }
         }
     }
 }

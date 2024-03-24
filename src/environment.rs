@@ -3,13 +3,21 @@ use std::{cell::RefCell, collections::HashMap};
 use crate::parser::expression::Literal;
 
 pub struct Environment<'a> {
-    pub values: RefCell<HashMap<String, Literal>>,
+    pub values: RefCell<HashMap<String, (Literal, bool)>>,
     pub enclosing: Option<&'a Environment<'a>>,
 }
 
 impl<'a> Environment<'a> {
-    pub fn define(&self, identifier: String, value: Literal) {
-        self.values.borrow_mut().insert(identifier, value);
+    pub fn define(&self, identifier: String, value: Option<Literal>) {
+        let initialized = value.is_some();
+        let _value = match value {
+            Some(literal) => literal,
+            None => Literal::Null
+        };
+
+        self.values
+            .borrow_mut()
+            .insert(identifier, (_value, initialized));
     }
 
     pub fn assign(&self, identifier: &String, value: &Literal) -> bool {
@@ -17,13 +25,16 @@ impl<'a> Environment<'a> {
 
         match a.get(identifier) {
             Some(val) => {
-                a.insert(identifier.clone(), value.clone());
+                a.insert(identifier.clone(), (value.clone(), true));
 
                 true
             }
             None => match self.enclosing {
                 Some(enclosing) => {
-                    enclosing.values.borrow_mut().insert(identifier.clone(), value.clone());
+                    enclosing
+                        .values
+                        .borrow_mut()
+                        .insert(identifier.clone(), (value.clone(), true));
 
                     return true;
                 }
@@ -32,14 +43,12 @@ impl<'a> Environment<'a> {
         }
     }
 
-    pub fn get(&self, identifier: &String) -> Option<Literal> {
+    pub fn get(&self, identifier: &String) -> Option<(Literal, bool)> {
         let values = self.values.borrow_mut();
         let res = values.get(identifier);
 
         match res {
-            Some(_) => {
-                return res.cloned()
-            },
+            Some(literal) => return Some(literal.clone()),
             None => {}
         }
 

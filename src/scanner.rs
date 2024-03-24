@@ -83,7 +83,7 @@ impl<'a> Scanner<'a> {
             '+' => Result::Ok(Some(Token::new(TokenType::Plus, None, self.line))),
             ';' => Result::Ok(Some(Token::new(TokenType::Semicolon, None, self.line))),
             '*' => Result::Ok(Some(Token::new(TokenType::Star, None, self.line))),
-            '?' => Result::Ok(Some(Token::new(TokenType::Star, None, self.line))),
+            '?' => Result::Ok(Some(Token::new(TokenType::QuestionMark, None, self.line))),
             ':' => Result::Ok(Some(Token::new(TokenType::Colon, None, self.line))),
             '"' => self.string(),
             '0'..='9' => self.number(next_char),

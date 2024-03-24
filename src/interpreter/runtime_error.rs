@@ -15,13 +15,14 @@ pub enum RuntimeErrorType {
     IdentifierNotDefined,
     IdentifierTokenNotSaved,
     InvalidAssignmentTarget,
+    AccessToUninitiaizedVariable,
     Unknown
 }
 
 #[derive(Debug)]
 pub struct RuntimeError {
-    error_type: RuntimeErrorType,
-    line: u32,
+    pub error_type: RuntimeErrorType,
+    pub line: u32,
 }
 
 impl RuntimeError {
@@ -94,6 +95,11 @@ impl fmt::Display for RuntimeError {
             RuntimeErrorType::InvalidAssignmentTarget => write!(
                 f,
                 "Invalid assignment target at line {}",
+                self.line
+            ),
+            RuntimeErrorType::AccessToUninitiaizedVariable => write!(
+                f,
+                "Reading uninitialized variable at line {}",
                 self.line
             ),
             RuntimeErrorType::Unknown => write!(

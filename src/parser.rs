@@ -5,9 +5,9 @@ use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
 use crate::scanner::token::{Token, TokenType};
 use expression::{Binary, Expr, Unary};
 
-use self::expression::{Assign, Empty, Grouping, Literal, Ternery, Variable};
+use self::expression::{Assign, Empty, Grouping, Literal, Logical, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
-use self::statement::{BlockStmt, ExprStmt, PrintStmt, Statement, VarStmt};
+use self::statement::{BlockStmt, ExprStmt, IfStmt, PrintStmt, Statement, VarStmt};
 
 pub mod evaluate;
 pub mod expression;
@@ -18,23 +18,28 @@ pub mod statement;
 //                | declaration* EOF;
 
 // declaration    → varDecl
-//                | statement ;
 
 // varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 
 // statement      → exprStmt
-//                | printStmt ;
+//                | printStmt
 //                | block ;
+//                | ifStmt
+
+// ifStmt         → "if" "(" expression ")" statement
+//                ( "else" statement )? ;
 
 // block          → "{" declaration* "}" ;
 
 // exprStmt       → expression ";" ;
 // printStmt      → "print" expression ";" ;
 
-// expression     → equality ( "?" exression ":" expression )* ;
+// expression     → logic_or ( "?" exression ":" expression )* ;
 //                | assignment ;
-// assignment     → expression "=" assignment
-//                | equality ;
+// assignment     → IDENTIFIER "=" assignment
+//                | logic_or ;
+// logic_or       → logic_and ( "or" logic_and )* ;
+// logic_and      → equality ( "and" equality )* ;
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term           → factor ( ( "-" | "+" ) factor )* ;
@@ -74,6 +79,11 @@ impl<'a> Parser<'a> {
     pub fn statement(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
         match self._match_(&[TokenType::Var]) {
             Some(token) => return self.var_declaration(),
+            None => {}
+        }
+
+        match self._match_(&[TokenType::If]) {
+            Some(token) => return self.if_statement(),
             None => {}
         }
 
@@ -124,15 +134,71 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn if_statement(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
+        let res = self.consume(&TokenType::LeftParen);
+        match res {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line));
+            }
+            Ok(_) => {}
+        }
+
+        let cond = self.expression();
+        match cond {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line));
+            }
+            Ok(_) => {}
+        }
+
+        let res2 = self.consume(&TokenType::RightParen);
+        match res2 {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line));
+            }
+            Ok(_) => {}
+        }
+
+        let then = self.statement();
+        if then.is_err() {
+            return then;
+        }
+
+        let mut els = None;
+        let _els = self.check(&TokenType::Else);
+        if _els {
+            self.consume(&TokenType::Else);
+            let stmt = self.statement();
+            match stmt {
+                Err(err) => {
+                    println!("{}", err);
+                    return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line));
+                }
+                Ok(_) => {}
+            }
+
+            els = Some(stmt.unwrap());
+        }
+
+        Ok(Box::new(IfStmt {
+            cond: cond.unwrap(),
+            then: then.unwrap(),
+            els,
+        }))
+    }
+
     pub fn block_stmt(&mut self) -> Result<Vec<Box<dyn Statement>>, RuntimeError> {
         let mut statements: Vec<Box<dyn Statement>> = vec![];
 
         loop {
-            if self.check(&TokenType::LeftBrace) {
+            if self.check(&TokenType::RightBrace) {
                 break;
             }
 
-            let res = self.var_declaration();
+            let res = self.statement();
             match res {
                 Ok(stmt) => {
                     statements.push(stmt);
@@ -143,15 +209,12 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let res = self.consume(&TokenType::LeftBrace);
+        let res = self.consume(&TokenType::RightBrace);
         match res {
             Ok(_) => {}
             Err(err) => {
                 println!("{}", err);
-                return Err(RuntimeError::new(
-                    RuntimeErrorType::Unknown,
-                    err.line,
-                ));
+                return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line));
             }
         }
 
@@ -160,9 +223,12 @@ impl<'a> Parser<'a> {
 
     pub fn var_declaration(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
         let res = self.consume(&TokenType::Identifier);
-        if res.is_err() {
-            println!("{}", res.unwrap_err());
-            return Err(RuntimeError::new(RuntimeErrorType::IdentifierExpedcted, 0));
+        match res {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line));
+            }
+            Ok(_) => {}
         }
 
         let mut initializer: Option<Box<dyn Expr>> = None;
@@ -283,7 +349,7 @@ impl<'a> Parser<'a> {
     }
 
     fn assignment(&mut self) -> Result<Box<dyn Expr>, ParserError> {
-        let res = self.equality();
+        let res = self.or();
         if res.is_err() {
             return res;
         }
@@ -318,6 +384,66 @@ impl<'a> Parser<'a> {
         }
 
         res
+    }
+
+    fn or(&mut self) -> Result<Box<dyn Expr>, ParserError> {
+        let mut expr: Result<Box<dyn Expr>, ParserError> = self.and();
+        if expr.is_err() {
+            return expr;
+        }
+
+        loop {
+            let match_or = self._match_(&[TokenType::Or]);
+            match match_or {
+                Some(or_token) => {
+                    let right = self.and();
+                    if right.is_err() {
+                        return right;
+                    }
+
+                    expr = Ok(Box::new(Logical {
+                        op: or_token,
+                        left: expr.unwrap(),
+                        right: right.unwrap(),
+                    }))
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+
+        expr
+    }
+
+    fn and(&mut self) -> Result<Box<dyn Expr>, ParserError> {
+        let mut expr: Result<Box<dyn Expr>, ParserError> = self.equality();
+        if expr.is_err() {
+            return expr;
+        }
+
+        loop {
+            let match_and = self._match_(&[TokenType::And]);
+            match match_and {
+                Some(and_token) => {
+                    let right = self.equality();
+                    if right.is_err() {
+                        return right;
+                    }
+
+                    expr = Ok(Box::new(Logical {
+                        op: and_token,
+                        left: expr.unwrap(),
+                        right: right.unwrap(),
+                    }))
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+
+        expr
     }
 
     fn equality(&mut self) -> Result<Box<dyn Expr>, ParserError> {
@@ -417,6 +543,7 @@ impl<'a> Parser<'a> {
         loop {
             match self._match_(&[TokenType::Star, TokenType::Slash]) {
                 Some(token) => {
+                    println!{"matched star or slash"};
                     let right = self.term();
                     if right.is_err() {
                         return right;
@@ -562,7 +689,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        println!("consumed {}", self.tokens[self.current as usize]);
+        println!("consumed {}", self.tokens[(self.current - 1) as usize]);
 
         Ok(self.tokens[(self.current - 1) as usize].clone())
     }

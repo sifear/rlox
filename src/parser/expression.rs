@@ -1,18 +1,16 @@
 use crate::{
-    environment::Environment,
-    interpreter::runtime_error::{RuntimeError, RuntimeErrorType},
-    scanner::token::{Token, TokenType},
+    environment::Environment, interpreter::runtime_error::{RuntimeError, RuntimeErrorType}, scanner::token::{Token, TokenType}
 };
 use core::fmt;
 use core::fmt::Debug;
 use std::any::Any;
 
 use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
+use crate::is_truthy::is_truthy;
 
 pub trait Expr {
     fn to_string(&self) -> String;
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>;
-    fn my_type(&self) -> i32;
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -43,6 +41,12 @@ pub struct Unary {
     right: Box<dyn Expr>,
 }
 pub struct Binary {
+    pub left: Box<dyn Expr>,
+    pub op: Token,
+    pub right: Box<dyn Expr>,
+}
+
+pub struct Logical {
     pub left: Box<dyn Expr>,
     pub op: Token,
     pub right: Box<dyn Expr>,
@@ -89,9 +93,6 @@ impl Expr for Empty {
         return Ok(Literal::Null);
     }
 
-    fn my_type(&self) -> i32 {
-        0
-    }
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -110,12 +111,18 @@ impl Expr for Ternery {
     }
 
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
-        return Ok(Literal::Null);
+        let res_of_predicate = self.predicate.evaluate(env);
+        if res_of_predicate.is_err() {
+            return res_of_predicate;
+        }
+
+        if is_truthy(&res_of_predicate.unwrap()) {
+            self.true_arm.evaluate(env)
+        } else {
+            self.false_arm.evaluate(env)
+        }
     }
 
-    fn my_type(&self) -> i32 {
-        1
-    }
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -134,10 +141,6 @@ impl Expr for Literal {
 
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         return Ok(self.clone());
-    }
-
-    fn my_type(&self) -> i32 {
-        2
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -166,7 +169,7 @@ impl Expr for Unary {
                 let a = self.right.evaluate(env);
                 match a {
                     Ok(res) => {
-                        let ampl = is_truthy(res);
+                        let ampl = is_truthy(&res);
 
                         Ok(Literal::Boolean(!ampl))
                     }
@@ -177,10 +180,6 @@ impl Expr for Unary {
                 panic!("Unexpected operator token type while evaluating unary.")
             }
         }
-    }
-
-    fn my_type(&self) -> i32 {
-        3
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -245,12 +244,39 @@ impl Expr for Binary {
         }
     }
 
-    fn my_type(&self) -> i32 {
-        4
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Expr for Logical {
+    fn to_string(&self) -> String {
+        format!("({} {} {})", self.op, self.left, self.right)
     }
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        let mut left = self.left.evaluate(env);
+        if left.is_err() {
+            return left;
+        }
+        let _left = left.unwrap();
+
+        if self.op.token_type == TokenType::Or {
+
+            if is_truthy(&_left) {
+                return Ok(_left)
+            }
+        } else {
+            if !is_truthy(&_left) {
+                return Ok(_left)
+            }
+        }
+
+        self.right.evaluate(env)
     }
 }
 
@@ -273,20 +299,8 @@ impl Expr for Grouping {
         self.exprs.iter().map(|a| a.evaluate(env)).last().unwrap()
     }
 
-    fn my_type(&self) -> i32 {
-        5
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
-    }
-}
-
-fn is_truthy(literal: Literal) -> bool {
-    match literal {
-        Literal::Boolean(false) => false,
-        Literal::Null => false,
-        _ => true,
     }
 }
 
@@ -296,7 +310,16 @@ impl Expr for Variable {
             Some(name) => {
                 let a = env.get(name);
                 match a {
-                    Some(b) => Ok(b.clone()),
+                    Some(b) => {
+                        if !b.1 {
+                            return Err(RuntimeError::new(
+                                RuntimeErrorType::AccessToUninitiaizedVariable,
+                                self.name.line,
+                            ));
+                        }
+
+                        Ok(b.0.clone())
+                    }
                     None => Err(RuntimeError::new(
                         RuntimeErrorType::IdentifierNotDefined,
                         self.name.line,
@@ -312,10 +335,6 @@ impl Expr for Variable {
 
     fn to_string(&self) -> String {
         format!("(VAR {})", self.name.lexeme.clone().take().unwrap())
-    }
-
-    fn my_type(&self) -> i32 {
-        6
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -355,10 +374,6 @@ impl Expr for Assign {
 
     fn to_string(&self) -> String {
         "".to_string()
-    }
-
-    fn my_type(&self) -> i32 {
-        7
     }
 
     fn as_any(&self) -> &dyn Any {
