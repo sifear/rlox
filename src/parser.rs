@@ -7,7 +7,7 @@ use expression::{Binary, Expr, Unary};
 
 use self::expression::{Assign, Empty, Grouping, Literal, Logical, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
-use self::statement::{BlockStmt, ExprStmt, IfStmt, PrintStmt, Statement, VarStmt};
+use self::statement::{BlockStmt, ExprStmt, IfStmt, PrintStmt, Statement, VarStmt, WhileStmt};
 
 pub mod evaluate;
 pub mod expression;
@@ -22,9 +22,17 @@ pub mod statement;
 // varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 
 // statement      → exprStmt
+//                | forStmt
+//                | whileStmt ;
 //                | printStmt
-//                | block ;
+//                | block
 //                | ifStmt
+
+// forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
+//                  expression? ";"
+//                  expression? ")" statement ;
+
+// whileStmt      → "while" "(" expression ")" statement ;
 
 // ifStmt         → "if" "(" expression ")" statement
 //                ( "else" statement )? ;
@@ -98,6 +106,17 @@ impl<'a> Parser<'a> {
             None => {}
         };
 
+        match self._match_(&[TokenType::While]) {
+            Some(token) => {
+                let while_stmt = self.while_stmt();
+                match while_stmt {
+                    Ok(expr) => return Ok(expr),
+                    Err(err) => return Err(err),
+                }
+            }
+            None => {}
+        }
+
         match self._match_(&[TokenType::LeftBrace]) {
             Some(token) => {
                 let statements = self.block_stmt();
@@ -132,6 +151,56 @@ impl<'a> Parser<'a> {
                 ))
             }
         }
+    }
+
+    pub fn while_stmt(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
+        let res = self.consume(&TokenType::LeftParen);
+        match res {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(
+                    RuntimeErrorType::MissingWhileCondStartParenthesis,
+                    err.line,
+                ));
+            }
+            Ok(_) => {}
+        }
+
+        let cond = self.expression();
+
+        match cond {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line));
+            }
+            Ok(_) => {}
+        }
+
+        let res = self.consume(&TokenType::RightParen);
+        match res {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(
+                    RuntimeErrorType::MissingWhileCondEndParenthesis,
+                    err.line,
+                ));
+            }
+            Ok(_) => {}
+        }
+
+        let body = self.statement();
+        match body {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line));
+            }
+            Ok(_) => {}
+        }
+
+        Ok(Box::new(WhileStmt {
+            cond: cond.unwrap(),
+            body: body.unwrap(),
+        }))
     }
 
     pub fn if_statement(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
@@ -543,7 +612,7 @@ impl<'a> Parser<'a> {
         loop {
             match self._match_(&[TokenType::Star, TokenType::Slash]) {
                 Some(token) => {
-                    println!{"matched star or slash"};
+                    println! {"matched star or slash"};
                     let right = self.term();
                     if right.is_err() {
                         return right;

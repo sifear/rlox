@@ -39,6 +39,11 @@ pub struct IfStmt {
     pub els: Option<Box<dyn Statement>>,
 }
 
+pub struct WhileStmt {
+    pub cond: Box<dyn Expr>,
+    pub body: Box<dyn Statement>,
+}
+
 impl Statement for IfStmt {
     fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
         let cond_eval = self.cond.evaluate(env);
@@ -142,5 +147,29 @@ impl Statement for VarStmt {
         }
 
         Ok(Literal::Null)
+    }
+}
+
+impl Statement for WhileStmt {
+    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
+        loop {
+            let cond = self.cond.evaluate(env);
+            if cond.is_err() {
+                return cond;
+            }
+
+            if !is_truthy(&cond.unwrap()) {
+                return  Ok(Literal::Null);
+            }
+
+            let block_eval = self.body.evaluate(env);
+            if block_eval.is_err() {
+                return block_eval;
+            }
+        }
+    }
+
+    fn to_string(&self) -> String {
+        format!("<While stmt>")
     }
 }

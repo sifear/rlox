@@ -16,6 +16,8 @@ pub enum RuntimeErrorType {
     IdentifierTokenNotSaved,
     InvalidAssignmentTarget,
     AccessToUninitiaizedVariable,
+    MissingWhileCondStartParenthesis,
+    MissingWhileCondEndParenthesis,
     Unknown
 }
 
@@ -100,6 +102,16 @@ impl fmt::Display for RuntimeError {
             RuntimeErrorType::AccessToUninitiaizedVariable => write!(
                 f,
                 "Reading uninitialized variable at line {}",
+                self.line
+            ),
+            RuntimeErrorType::MissingWhileCondStartParenthesis => write!(
+                f,
+                "Missing start parenthesis before while condition at line {}",
+                self.line
+            ),
+            RuntimeErrorType::MissingWhileCondEndParenthesis => write!(
+                f,
+                "Missing end parenthesis after while condition at line {}",
                 self.line
             ),
             RuntimeErrorType::Unknown => write!(
