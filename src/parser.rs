@@ -117,6 +117,17 @@ impl<'a> Parser<'a> {
             None => {}
         }
 
+        match self._match_(&[TokenType::For]) {
+            Some(token) => {
+                let for_stmt = self.for_stmt();
+                match for_stmt {
+                    Ok(expr) => return Ok(expr),
+                    Err(err) => return Err(err),
+                }
+            }
+            None => {}
+        }
+
         match self._match_(&[TokenType::LeftBrace]) {
             Some(token) => {
                 let statements = self.block_stmt();
@@ -128,6 +139,10 @@ impl<'a> Parser<'a> {
             None => {}
         };
 
+        self.expr_stmt()
+    }
+
+    pub fn expr_stmt(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
         let expr = self.expression();
         match expr {
             Ok(expr) => {
@@ -150,6 +165,126 @@ impl<'a> Parser<'a> {
                     err.line,
                 ))
             }
+        }
+    }
+
+    pub fn for_stmt(&mut self) -> Result<Box<dyn Statement>, RuntimeError> {
+        let res = self.consume(&TokenType::LeftParen);
+        match res {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(
+                    RuntimeErrorType::MissingForCondStartParenthesis,
+                    err.line,
+                ));
+            }
+            Ok(_) => {}
+        }
+
+        let initializer = match self._match_(&[TokenType::Semicolon]) {
+            Some(token) => None,
+            None => match self._match_(&[TokenType::Var]) {
+                Some(token) => {
+                    let var_declaration = self.var_declaration();
+                    if var_declaration.is_err() {
+                        return var_declaration;
+                    }
+
+                    Some(var_declaration.unwrap())
+                }
+                None => {
+                    let expr_stmt = self.expr_stmt();
+                    if expr_stmt.is_err() {
+                        return expr_stmt;
+                    }
+
+                    Some(expr_stmt.unwrap())
+                }
+            },
+        };
+
+        let condition = if !self.check(&TokenType::Semicolon) {
+            let expr = self.expression();
+
+            if expr.is_err() {
+                return Err(RuntimeError::new(
+                    RuntimeErrorType::ExpressionExpected,
+                    expr.unwrap_err().line,
+                ));
+            }
+
+            Some(expr.unwrap())
+        } else {
+            None
+        };
+
+        self.consume(&TokenType::Semicolon);
+
+        let increment = if !self.check(&TokenType::RightParen) {
+            let expr = self.expression();
+
+            if expr.is_err() {
+                return Err(RuntimeError::new(
+                    RuntimeErrorType::ExpressionExpected,
+                    expr.unwrap_err().line,
+                ));
+            }
+
+            Some(expr.unwrap())
+        } else {
+            None
+        };
+
+        let res = self.consume(&TokenType::RightParen);
+        if res.is_err() {
+            return Err(RuntimeError::new(
+                RuntimeErrorType::MissingForCondEndParenthesis,
+                res.unwrap_err().line,
+            ));
+        }
+
+        let body = self.statement();
+        match body {
+            Err(err) => {
+                println!("{}", err);
+                return Err(RuntimeError::new(
+                    RuntimeErrorType::StatementExpected,
+                    err.line,
+                ));
+            }
+            Ok(_) => {}
+        }
+
+        let new_body = match increment {
+            Some(expr) => {
+                let mut wrapper_body = BlockStmt { stmts: vec![] };
+                wrapper_body.stmts.push(body.unwrap());
+                wrapper_body.stmts.push(Box::new(ExprStmt { expr: expr }));
+
+                Box::new(wrapper_body)
+            }
+            None => body.unwrap(),
+        };
+
+        let for_condition = match condition {
+            Some(cond) => cond,
+            None => Box::new(Literal::Boolean(true)),
+        };
+
+        let while_stmt = WhileStmt {
+            cond: for_condition,
+            body: new_body,
+        };
+
+        match initializer {
+            Some(initer) => {
+                let mut block_stmt = BlockStmt { stmts: vec![] };
+                block_stmt.stmts.push(initer);
+                block_stmt.stmts.push(Box::new(while_stmt));
+
+                Ok(Box::new(block_stmt))
+            }
+            None => Ok(Box::new(while_stmt)),
         }
     }
 

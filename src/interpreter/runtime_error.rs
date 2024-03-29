@@ -9,6 +9,7 @@ pub enum RuntimeErrorType {
     ArithmeticInvalidOperator,
     ArithemticInvalidOperandAfterCast,
     StatementExpected,
+    ExpressionExpected,
     StatementMissingSemicolon,
     VarInitializerExpected,
     IdentifierExpedcted,
@@ -18,6 +19,8 @@ pub enum RuntimeErrorType {
     AccessToUninitiaizedVariable,
     MissingWhileCondStartParenthesis,
     MissingWhileCondEndParenthesis,
+    MissingForCondStartParenthesis,
+    MissingForCondEndParenthesis,
     Unknown
 }
 
@@ -112,6 +115,21 @@ impl fmt::Display for RuntimeError {
             RuntimeErrorType::MissingWhileCondEndParenthesis => write!(
                 f,
                 "Missing end parenthesis after while condition at line {}",
+                self.line
+            ),
+            RuntimeErrorType::MissingForCondStartParenthesis => write!(
+                f,
+                "Missing start parenthesis before for loop condition at line {}",
+                self.line
+            ),
+            RuntimeErrorType::MissingForCondEndParenthesis => write!(
+                f,
+                "Missing end parenthesis after for loop condition at line {}",
+                self.line
+            ),
+            RuntimeErrorType::ExpressionExpected => write!(
+                f,
+                "Expression expected at line {}",
                 self.line
             ),
             RuntimeErrorType::Unknown => write!(

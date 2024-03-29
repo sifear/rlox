@@ -152,6 +152,8 @@ impl Statement for VarStmt {
 
 impl Statement for WhileStmt {
     fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
+        println!("{:?}", self.body);
+        println!("{:?}", self.cond);
         loop {
             let cond = self.cond.evaluate(env);
             if cond.is_err() {
