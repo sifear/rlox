@@ -31,10 +31,11 @@ impl<'a> Environment<'a> {
             }
             None => match self.enclosing {
                 Some(enclosing) => {
-                    enclosing
-                        .values
-                        .borrow_mut()
-                        .insert(identifier.clone(), (value.clone(), true));
+                    enclosing.assign(identifier, value);
+                    // enclosing
+                    //     .values
+                    //     .borrow_mut()
+                    //     .insert(identifier.clone(), (value.clone(), true));
 
                     return true;
                 }

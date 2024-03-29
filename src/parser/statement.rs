@@ -123,7 +123,7 @@ impl Statement for PrintStmt {
 
 impl Statement for VarStmt {
     fn to_string(&self) -> String {
-        format!("<Var stmt>")
+        format!("<Var stmt {:?}>", self.name.lexeme.clone().unwrap())
     }
 
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
