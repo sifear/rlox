@@ -21,7 +21,8 @@ pub enum RuntimeErrorType {
     MissingWhileCondEndParenthesis,
     MissingForCondStartParenthesis,
     MissingForCondEndParenthesis,
-    Unknown
+    UnexpextedBreakStatement,
+    Unknown,
 }
 
 #[derive(Debug)]
@@ -130,6 +131,11 @@ impl fmt::Display for RuntimeError {
             RuntimeErrorType::ExpressionExpected => write!(
                 f,
                 "Expression expected at line {}",
+                self.line
+            ),
+            RuntimeErrorType::UnexpextedBreakStatement => write!(
+                f,
+                "Unexpected break sttatement at {}",
                 self.line
             ),
             RuntimeErrorType::Unknown => write!(

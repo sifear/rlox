@@ -1,5 +1,7 @@
 use crate::{
-    environment::Environment, interpreter::runtime_error::{RuntimeError, RuntimeErrorType}, scanner::token::{Token, TokenType}
+    environment::Environment,
+    interpreter::runtime_error::{RuntimeError, RuntimeErrorType},
+    scanner::token::{Token, TokenType},
 };
 use core::fmt;
 use core::fmt::Debug;
@@ -33,6 +35,7 @@ pub enum Literal {
     String(String),
     Number(f64),
     Boolean(bool),
+    Break,
     Null,
 }
 
@@ -132,6 +135,7 @@ impl Expr for Literal {
     fn to_string(&self) -> String {
         match self {
             Literal::Null => String::from("(Null literal)"),
+            Literal::Break => String::from("(Break statement)"),
             Literal::Boolean(true) => String::from("(True literal)"),
             Literal::Boolean(false) => String::from("(False literal)"),
             Literal::Number(n) => format!("(Number literal: {})", n),
@@ -266,13 +270,12 @@ impl Expr for Logical {
         let _left = left.unwrap();
 
         if self.op.token_type == TokenType::Or {
-
             if is_truthy(&_left) {
-                return Ok(_left)
+                return Ok(_left);
             }
         } else {
             if !is_truthy(&_left) {
-                return Ok(_left)
+                return Ok(_left);
             }
         }
 

@@ -7,7 +7,9 @@ use expression::{Binary, Expr, Unary};
 
 use self::expression::{Assign, Empty, Grouping, Literal, Logical, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
-use self::statement::{BlockStmt, ExprStmt, IfStmt, PrintStmt, Statement, VarStmt, WhileStmt};
+use self::statement::{
+    BlockStmt, BreakStmt, ExprStmt, IfStmt, PrintStmt, Statement, VarStmt, WhileStmt,
+};
 
 pub mod evaluate;
 pub mod expression;
@@ -23,10 +25,13 @@ pub mod statement;
 
 // statement      → exprStmt
 //                | forStmt
-//                | whileStmt ;
+//                | whileStmt
 //                | printStmt
 //                | block
 //                | ifStmt
+//                | breakStmt
+
+// breakStmt      → "break" ";"
 
 // forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
 //                  expression? ";"
@@ -135,6 +140,21 @@ impl<'a> Parser<'a> {
                     Ok(stmts) => return Ok(Box::new(BlockStmt { stmts })),
                     Err(err) => return Err(err),
                 }
+            }
+            None => {}
+        };
+
+        match self._match_(&[TokenType::Break]) {
+            Some( token) => {
+                let semi = self.consume(&TokenType::Semicolon);
+                if semi.is_err() {
+                    return Err(RuntimeError::new(
+                        RuntimeErrorType::StatementMissingSemicolon,
+                        semi.unwrap_err().line,
+                    ));
+                }
+
+                return Ok(Box::new(BreakStmt {}));
             }
             None => {}
         };

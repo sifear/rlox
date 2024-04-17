@@ -44,6 +44,8 @@ pub struct WhileStmt {
     pub body: Box<dyn Statement>,
 }
 
+pub struct BreakStmt {}
+
 impl Statement for IfStmt {
     fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
         let cond_eval = self.cond.evaluate(env);
@@ -83,6 +85,12 @@ impl Statement for BlockStmt {
             let res = statement.evaluate(&local_env);
             match res {
                 Ok(val) => {
+                    match val {
+                        Literal::Break => {
+                            return Ok(Literal::Break);
+                        }
+                        _ => {}
+                    }
                     last_value = val;
                 }
                 Err(err) => {
@@ -161,17 +169,33 @@ impl Statement for WhileStmt {
             }
 
             if !is_truthy(&cond.unwrap()) {
-                return  Ok(Literal::Null);
+                return Ok(Literal::Null);
             }
 
             let block_eval = self.body.evaluate(env);
             if block_eval.is_err() {
                 return block_eval;
             }
+            match block_eval.unwrap() {
+                Literal::Break => {
+                    return Ok(Literal::Null);
+                }
+                _ => {}
+            }
         }
     }
 
     fn to_string(&self) -> String {
         format!("<While stmt>")
+    }
+}
+
+impl Statement for BreakStmt {
+    fn to_string(&self) -> String {
+        format!("<Break stmt>")
+    }
+
+    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
+        Ok(Literal::Break)
     }
 }
