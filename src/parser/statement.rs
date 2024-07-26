@@ -4,11 +4,19 @@ use crate::{environment::Environment, is_truthy::is_truthy};
 use super::expression::{Expr, Literal};
 use crate::interpreter::runtime_error::RuntimeError;
 use core::fmt::Debug;
+use std::any::{Any, TypeId};
 use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap};
 
-pub trait Statement {
+pub trait Statement: Any {
     fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError>;
     fn to_string(&self) -> String;
+}
+
+impl dyn Statement {
+    // Helper method to check the type
+    fn is<T: Any>(&self) -> bool {
+        self.type_id() == std::any::TypeId::of::<T>()
+    }
 }
 
 impl Debug for dyn Statement {
@@ -43,6 +51,8 @@ pub struct WhileStmt {
     pub cond: Box<dyn Expr>,
     pub body: Box<dyn Statement>,
 }
+
+pub struct BreakStmt {}
 
 impl Statement for IfStmt {
     fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
@@ -82,9 +92,14 @@ impl Statement for BlockStmt {
         for statement in self.stmts.iter() {
             let res = statement.evaluate(&local_env);
             match res {
-                Ok(val) => {
-                    last_value = val;
-                }
+                Ok(val) => match val {
+                    Literal::Break => {
+                        return Ok(Literal::Break);
+                    }
+                    _ => {
+                        last_value = val;
+                    }
+                },
                 Err(err) => {
                     return Err(err);
                 }
@@ -161,17 +176,36 @@ impl Statement for WhileStmt {
             }
 
             if !is_truthy(&cond.unwrap()) {
-                return  Ok(Literal::Null);
+                return Ok(Literal::Null);
             }
 
             let block_eval = self.body.evaluate(env);
             if block_eval.is_err() {
                 return block_eval;
             }
+
+            match block_eval {
+                Ok(literal) => match literal {
+                    Literal::Break => {
+                        return Ok(Literal::Null);
+                    }
+                    _ => {}
+                },
+                Err(err) => {}
+            }
         }
     }
 
     fn to_string(&self) -> String {
         format!("<While stmt>")
+    }
+}
+
+impl Statement for BreakStmt {
+    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
+        Ok(Literal::Break)
+    }
+    fn to_string(&self) -> String {
+        format!("<Break stmt>")
     }
 }

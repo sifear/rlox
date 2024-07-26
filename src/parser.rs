@@ -4,6 +4,7 @@ use crate::interpreter::is_variable::as_variable;
 use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
 use crate::scanner::token::{Token, TokenType};
 use expression::{Binary, Expr, Unary};
+use statement::BreakStmt;
 
 use self::expression::{Assign, Empty, Grouping, Literal, Logical, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
@@ -136,6 +137,13 @@ impl<'a> Parser<'a> {
                     Err(err) => return Err(err),
                 }
             }
+            None => {}
+        };
+
+        match self._match_(&[TokenType::Break]) {
+            Some(token) => {
+                return Ok(Box::new(BreakStmt{}));
+            },
             None => {}
         };
 

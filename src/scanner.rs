@@ -159,6 +159,7 @@ impl<'a> Scanner<'a> {
         map.insert("true", TokenType::True);
         map.insert("var", TokenType::Var);
         map.insert("while", TokenType::While);
+        map.insert("break", TokenType::Break);
 
         match map.get(a) {
             Some(tt) => Some(tt.clone()),

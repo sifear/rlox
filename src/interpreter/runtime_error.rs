@@ -1,6 +1,6 @@
 use core::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RuntimeErrorType {
     OperationNotSupported,
     ArithmeticInvalidOperand,
@@ -24,7 +24,7 @@ pub enum RuntimeErrorType {
     Unknown
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct RuntimeError {
     pub error_type: RuntimeErrorType,
     pub line: u32,

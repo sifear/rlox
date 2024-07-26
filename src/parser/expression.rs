@@ -33,6 +33,7 @@ pub enum Literal {
     String(String),
     Number(f64),
     Boolean(bool),
+    Break,
     Null,
 }
 
@@ -132,6 +133,7 @@ impl Expr for Literal {
     fn to_string(&self) -> String {
         match self {
             Literal::Null => String::from("(Null literal)"),
+            Literal::Break => format!("(Break)"),
             Literal::Boolean(true) => String::from("(True literal)"),
             Literal::Boolean(false) => String::from("(False literal)"),
             Literal::Number(n) => format!("(Number literal: {})", n),
