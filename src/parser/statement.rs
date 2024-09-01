@@ -5,10 +5,11 @@ use super::expression::{Expr, Literal};
 use crate::interpreter::runtime_error::RuntimeError;
 use core::fmt::Debug;
 use std::any::{Any, TypeId};
+use std::rc::Rc;
 use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap};
 
 pub trait Statement: Any {
-    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError>;
+    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError>;
     fn to_string(&self) -> String;
 }
 
@@ -21,44 +22,51 @@ impl dyn Statement {
 
 impl Debug for dyn Statement {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Statement [{}]", self.to_string())
+        // write!(f, "Statement [{}]", self.to_string())
+        write!(f, "")
     }
 }
 
 pub struct ExprStmt {
-    pub expr: Box<dyn Expr>,
+    pub expr: Rc<dyn Expr>,
 }
 pub struct PrintStmt {
-    pub expr: Box<dyn Expr>,
+    pub expr: Rc<dyn Expr>,
 }
 
 pub struct BlockStmt {
-    pub stmts: Vec<Box<dyn Statement>>,
+    pub stmts: Vec<Rc<dyn Statement>>,
 }
 
 pub struct VarStmt {
-    pub initializer: Option<Box<dyn Expr>>,
+    pub initializer: Option<Rc<dyn Expr>>,
     pub name: Token,
 }
 
+pub struct FunStmt {
+    pub name: String,
+    pub arguments: Vec<Token>,
+    pub body: Rc<BlockStmt>,
+}
+
 pub struct IfStmt {
-    pub cond: Box<dyn Expr>,
-    pub then: Box<dyn Statement>,
-    pub els: Option<Box<dyn Statement>>,
+    pub cond: Rc<dyn Expr>,
+    pub then: Rc<dyn Statement>,
+    pub els: Option<Rc<dyn Statement>>,
 }
 
 pub struct WhileStmt {
-    pub cond: Box<dyn Expr>,
-    pub body: Box<dyn Statement>,
+    pub cond: Rc<dyn Expr>,
+    pub body: Rc<dyn Statement>,
 }
 
 pub struct BreakStmt {}
 
 impl Statement for IfStmt {
-    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
-        let cond_eval = self.cond.evaluate(env);
+    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+        let cond_eval = self.cond.evaluate(env.clone());
         if cond_eval.is_err() {
-            println!("{}", cond_eval.unwrap_err());
+            // println!("{}", cond_eval.unwrap_err());
             return Ok(Literal::Null);
         }
 
@@ -82,15 +90,15 @@ impl Statement for BlockStmt {
         format!("<Block stmt>")
     }
 
-    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
         let mut last_value = Literal::Null;
-        let local_env: Environment<'_> = Environment {
-            values: RefCell::new(HashMap::new()),
-            enclosing: Some(env),
-        };
+        let mut local_env: Environment = Environment::new();
+        local_env.values = RefCell::new(HashMap::new());
+        local_env.enclosing = Some(env);
+        let local_env_rc = Rc::new(local_env);
 
         for statement in self.stmts.iter() {
-            let res = statement.evaluate(&local_env);
+            let res = statement.evaluate(local_env_rc.clone());
             match res {
                 Ok(val) => match val {
                     Literal::Break => {
@@ -115,16 +123,17 @@ impl Statement for ExprStmt {
         format!("<ExprStmt stmt>")
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
         self.expr.evaluate(env)
     }
 }
+
 impl Statement for PrintStmt {
     fn to_string(&self) -> String {
         format!("<Print stmt>")
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
         let res = self.expr.evaluate(env);
         if res.is_err() {
             return res;
@@ -141,10 +150,10 @@ impl Statement for VarStmt {
         format!("<Var stmt {:?}>", self.name.lexeme.clone().unwrap())
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
         let initial_value = match &self.initializer {
             Some(initer) => {
-                let res = initer.evaluate(env);
+                let res = initer.evaluate(env.clone());
                 if res.is_err() {
                     return res;
                 }
@@ -165,12 +174,31 @@ impl Statement for VarStmt {
     }
 }
 
+impl Statement for FunStmt {
+    fn to_string(&self) -> String {
+        format!("<Fun stmt {:?}>", self.name)
+    }
+
+    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+        env.define_method(
+            self.name.clone(),
+            Rc::new(FunStmt {
+                arguments: self.arguments.clone(),
+                body: self.body.clone(),
+                name: self.name.clone(),
+            }),
+        );
+
+        Ok(Literal::Null)
+    }
+}
+
 impl Statement for WhileStmt {
-    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
-        println!("{:?}", self.body);
-        println!("{:?}", self.cond);
+    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+        // println!("{:?}", self.body);
+        // println!("{:?}", self.cond);
         loop {
-            let cond = self.cond.evaluate(env);
+            let cond = self.cond.evaluate(env.clone());
             if cond.is_err() {
                 return cond;
             }
@@ -179,7 +207,7 @@ impl Statement for WhileStmt {
                 return Ok(Literal::Null);
             }
 
-            let block_eval = self.body.evaluate(env);
+            let block_eval = self.body.evaluate(env.clone());
             if block_eval.is_err() {
                 return block_eval;
             }
@@ -202,7 +230,7 @@ impl Statement for WhileStmt {
 }
 
 impl Statement for BreakStmt {
-    fn evaluate<'a>(&self, env: &'a Environment<'a>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
         Ok(Literal::Break)
     }
     fn to_string(&self) -> String {

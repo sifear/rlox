@@ -10,7 +10,7 @@ mod is_truthy;
 
 fn main() {
     let args = args().collect::<Vec<String>>();
-    println!("{:?}", args);
+    // println!("{:?}", args);
 
     if args.len() > 2 {
         println!("Usage: jlox: [script]");

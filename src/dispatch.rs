@@ -17,7 +17,7 @@ pub fn run_file(path: &String) {
     let mut parser = Parser::new(&scanner.tokens);
     let statements = parser.parse();
 
-    println!("{:?}", statements);
+    // println!("{:?}", statements);
 
     let mut interpreter = Interpreter::new(statements);
     interpreter.interpret();
@@ -31,7 +31,7 @@ pub fn run_prompt() {
         let mut buf = String::from("");
         standard_input.read_line(&mut buf).unwrap();
 
-        println!("line to run: {}", buf);
+        // println!("line to run: {}", buf);
 
         let mut scanner = crate::scanner::Scanner::new(&buf);
         scanner.run();
