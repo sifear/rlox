@@ -6,7 +6,7 @@ use crate::{
 };
 use core::fmt;
 use core::fmt::Debug;
-use std::{any::Any, rc::Rc};
+use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 
 use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
 use crate::is_truthy::is_truthy;
@@ -127,7 +127,22 @@ impl Expr for Call {
                         let func = env.get_method(name);
                         match func {
                             Some(fun) => {
-                                let a = fun.body.evaluate(env.clone());
+                                let mut local_env: Environment = Environment::new();
+                                local_env.values = RefCell::new(HashMap::new());
+                                local_env.enclosing = Some(env.clone());
+
+                                for (index, arg) in fun.arguments.iter().enumerate() {
+                                    if index <= self.arguments.len() {
+                                        let input_value = self.arguments[index].evaluate(env.clone()).unwrap();
+                                        let input_identifier = arg.lexeme.as_ref().unwrap().clone();
+                                        local_env.define(input_identifier, Some(input_value));
+                                        // let bbb = local_env.get(&"a".to_string());
+                                        // println!("{:?}", bbb.unwrap().0);
+                                    }
+                                }
+
+                                let local_env_rc = Rc::new(local_env);
+                                let a = fun.body.evaluate(local_env_rc.clone());
                                 return a;
                             },
                             None => {

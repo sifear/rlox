@@ -1,21 +1,7 @@
-var a = now();
-print a;
-
-fun abc() {
-    print 123789;
+fun abc(a) {
+    print a * 100;
 }
 
-for (var i = 0; i < 20000; i = i + 1) {
-    for (var j = 0; j < 10000; j = j + 1) {
-        if (j == 5) {
-            break
-        }
-    }
-}
-
-a = now(2);
-print a;
-
-abc();
-abc();
-abc();
+abc(1);
+abc(2);
+abc(3);
