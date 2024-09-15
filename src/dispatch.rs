@@ -40,5 +40,6 @@ pub fn run_prompt() {
         let statements = parser.parse();
         let mut interpreter = Interpreter::new(statements);
         interpreter.interpret();
+
     }
 }

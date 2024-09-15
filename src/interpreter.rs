@@ -15,10 +15,10 @@ impl Interpreter {
     }
 
     pub fn interpret(&mut self) {
-        let global_env = Rc::new(Environment::new());
+        let global_env = Environment::new();
 
         for stmt in &self.statements {
-            match stmt.evaluate(global_env.clone()) {
+            match stmt.evaluate(&global_env) {
                 Ok(value) => {}
                 Err(err) => {
                     println!("{err}")

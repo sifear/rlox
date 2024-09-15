@@ -9,7 +9,7 @@ use std::rc::Rc;
 use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap};
 
 pub trait Statement: Any {
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError>;
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>;
     fn to_string(&self) -> String;
 }
 
@@ -63,8 +63,8 @@ pub struct WhileStmt {
 pub struct BreakStmt {}
 
 impl Statement for IfStmt {
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
-        let cond_eval = self.cond.evaluate(env.clone());
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        let cond_eval = self.cond.evaluate(env);
         if cond_eval.is_err() {
             // println!("{}", cond_eval.unwrap_err());
             return Ok(Literal::Null);
@@ -90,15 +90,14 @@ impl Statement for BlockStmt {
         format!("<Block stmt>")
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         let mut last_value = Literal::Null;
         let mut local_env: Environment = Environment::new();
         local_env.values = RefCell::new(HashMap::new());
         local_env.enclosing = Some(env);
-        let local_env_rc = Rc::new(local_env);
 
         for statement in self.stmts.iter() {
-            let res = statement.evaluate(local_env_rc.clone());
+            let res = statement.evaluate(&mut local_env);
             match res {
                 Ok(val) => match val {
                     Literal::Break => {
@@ -123,7 +122,7 @@ impl Statement for ExprStmt {
         format!("<ExprStmt stmt>")
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         self.expr.evaluate(env)
     }
 }
@@ -133,7 +132,7 @@ impl Statement for PrintStmt {
         format!("<Print stmt>")
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         let res = self.expr.evaluate(env);
         if res.is_err() {
             return res;
@@ -150,10 +149,10 @@ impl Statement for VarStmt {
         format!("<Var stmt {:?}>", self.name.lexeme.clone().unwrap())
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         let initial_value = match &self.initializer {
             Some(initer) => {
-                let res = initer.evaluate(env.clone());
+                let res = initer.evaluate(env);
                 if res.is_err() {
                     return res;
                 }
@@ -179,7 +178,7 @@ impl Statement for FunStmt {
         format!("<Fun stmt {:?}>", self.name)
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         env.define_method(
             self.name.clone(),
             Rc::new(FunStmt {
@@ -189,18 +188,16 @@ impl Statement for FunStmt {
             }),
         );
 
-
-
         Ok(Literal::Null)
     }
 }
 
 impl Statement for WhileStmt {
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate<'a>(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         // println!("{:?}", self.body);
         // println!("{:?}", self.cond);
         loop {
-            let cond = self.cond.evaluate(env.clone());
+            let cond = self.cond.evaluate(env);
             if cond.is_err() {
                 return cond;
             }
@@ -209,7 +206,7 @@ impl Statement for WhileStmt {
                 return Ok(Literal::Null);
             }
 
-            let block_eval = self.body.evaluate(env.clone());
+            let block_eval = self.body.evaluate(env);
             if block_eval.is_err() {
                 return block_eval;
             }
@@ -232,7 +229,7 @@ impl Statement for WhileStmt {
 }
 
 impl Statement for BreakStmt {
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         Ok(Literal::Break)
     }
     fn to_string(&self) -> String {

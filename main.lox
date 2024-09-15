@@ -1,5 +1,9 @@
+var b = "Dani";
+
 fun abc(a) {
+    print b;
     print a * 100;
+    b = b + a;
 }
 
 abc(1);

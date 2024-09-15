@@ -4,15 +4,15 @@ use std::{
 
 use crate::parser::{expression::Literal, method::Callable, statement::FunStmt};
 
-pub struct Environment {
+pub struct Environment<'a> {
     pub values: RefCell<HashMap<String, (Literal, bool)>>,
-    pub enclosing: Option<Rc<Environment>>,
+    pub enclosing: Option<&'a Environment<'a>>,
     pub global_methods: RefCell<HashMap<String, Callable>>,
     pub local_methods: RefCell<HashMap<String, Rc<FunStmt>>>,
 }
 
-impl Environment {
-    pub fn new() -> Environment {
+impl <'a>Environment<'a> {
+    pub fn new() -> Environment<'a> {
         let local_methods: RefCell<HashMap<String, Rc<FunStmt>>> = RefCell::new(HashMap::new());
         let global_methods: RefCell<HashMap<String, Callable>> = RefCell::new(HashMap::new());
 
@@ -71,7 +71,7 @@ impl Environment {
 
                 true
             }
-            None => match self.enclosing.clone() {
+            None => match self.enclosing {
                 Some(enclosing) => {
                     enclosing.assign(identifier, value);
                     // enclosing

@@ -6,12 +6,12 @@ use crate::scanner::token::TokenType;
 
 use super::expression::{Binary, Literal};
 
-pub fn arithmetic(expr: &Binary, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate(env.clone());
+pub fn arithmetic(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env);
     if left.is_err() {
         return left;
     }
-    let right = expr.right.evaluate(env.clone());
+    let right = expr.right.evaluate(env);
     if right.is_err() {
         return right;
     }
@@ -49,12 +49,12 @@ pub fn arithmetic(expr: &Binary, env: Rc<Environment>) -> Result<Literal, Runtim
     }
 }
 
-pub fn plus(expr: &Binary, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate(env.clone());
+pub fn plus(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env);
     if left.is_err() {
         return left;
     }
-    let right = expr.right.evaluate(env.clone());
+    let right = expr.right.evaluate(env);
     if right.is_err() {
         return right;
     }
@@ -104,12 +104,12 @@ pub fn plus(expr: &Binary, env: Rc<Environment>) -> Result<Literal, RuntimeError
     }
 }
 
-pub fn comparison(expr: &Binary, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate(env.clone());
+pub fn comparison(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env);
     if left.is_err() {
         return left;
     }
-    let right = expr.right.evaluate(env.clone());
+    let right = expr.right.evaluate(env);
     if right.is_err() {
         return right;
     }
@@ -141,12 +141,12 @@ pub fn comparison(expr: &Binary, env: Rc<Environment>) -> Result<Literal, Runtim
     }
 }
 
-pub fn eq_comparison(expr: &Binary, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate(env.clone());
+pub fn eq_comparison(expr: &Binary, env: &Environment) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env);
     if left.is_err() {
         return left;
     }
-    let right = expr.right.evaluate(env.clone());
+    let right = expr.right.evaluate(env);
     if right.is_err() {
         return right;
     }

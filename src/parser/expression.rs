@@ -6,14 +6,14 @@ use crate::{
 };
 use core::fmt;
 use core::fmt::Debug;
-use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
+use std::{any::Any, borrow::BorrowMut, cell::RefCell, collections::HashMap, rc::Rc};
 
 use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
 use crate::is_truthy::is_truthy;
 
 pub trait Expr {
     fn to_string(&self) -> String;
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError>;
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>;
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -101,16 +101,16 @@ impl Expr for Call {
         format!("<Call expression>")
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         // println!("Evaluating call");
         // let calle = self.calle.evaluate(env);
 
         match as_variable(self.calle.as_any()) {
             Some(fn_name) => {
                 println!("{:?}", fn_name.name);
-                let a = env.global_methods.borrow();
+                let global_methods_borrow = env.global_methods.borrow();
                 let name = &fn_name.name.lexeme.unwrap();
-                let b = a.get(name);
+                let b = global_methods_borrow.get(name);
                 match b {
                     Some(val) => {
                         if val.arity != self.arguments.len() as u32 {
@@ -129,11 +129,11 @@ impl Expr for Call {
                             Some(fun) => {
                                 let mut local_env: Environment = Environment::new();
                                 local_env.values = RefCell::new(HashMap::new());
-                                local_env.enclosing = Some(env.clone());
+                                local_env.enclosing = Some(env);
 
                                 for (index, arg) in fun.arguments.iter().enumerate() {
                                     if index <= self.arguments.len() {
-                                        let input_value = self.arguments[index].evaluate(env.clone()).unwrap();
+                                        let input_value = self.arguments[index].evaluate(env).unwrap();
                                         let input_identifier = arg.lexeme.as_ref().unwrap().clone();
                                         local_env.define(input_identifier, Some(input_value));
                                         // let bbb = local_env.get(&"a".to_string());
@@ -141,8 +141,7 @@ impl Expr for Call {
                                     }
                                 }
 
-                                let local_env_rc = Rc::new(local_env);
-                                let a = fun.body.evaluate(local_env_rc.clone());
+                                let a = fun.body.evaluate(&mut local_env);
                                 return a;
                             },
                             None => {
@@ -174,7 +173,7 @@ impl Expr for Empty {
         format!("<Discarded expression>")
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         return Ok(Literal::Null);
     }
 
@@ -195,16 +194,16 @@ impl Expr for Ternery {
         return cucc;
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
-        let res_of_predicate = self.predicate.evaluate(env.clone());
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        let res_of_predicate = self.predicate.evaluate(env);
         if res_of_predicate.is_err() {
             return res_of_predicate;
         }
 
         if is_truthy(&res_of_predicate.unwrap()) {
-            self.true_arm.evaluate(env.clone())
+            self.true_arm.evaluate(env)
         } else {
-            self.false_arm.evaluate(env.clone())
+            self.false_arm.evaluate(env)
         }
     }
 
@@ -225,7 +224,7 @@ impl Expr for Literal {
         }
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         return Ok(self.clone());
     }
 
@@ -239,7 +238,7 @@ impl Expr for Unary {
         format!("({} {})", self.op, self.right)
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus => {
                 let ampl = self.right.evaluate(env);
@@ -277,10 +276,10 @@ impl Expr for Binary {
     fn to_string(&self) -> String {
         format!("({} {} {})", self.op, self.left, self.right)
     }
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus | TokenType::Star | TokenType::Slash => {
-                let res = arithmetic(self, env.clone());
+                let res = arithmetic(self, env);
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -344,8 +343,8 @@ impl Expr for Logical {
         self
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
-        let mut left = self.left.evaluate(env.clone());
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        let mut left = self.left.evaluate(env);
         if left.is_err() {
             return left;
         }
@@ -361,7 +360,7 @@ impl Expr for Logical {
             }
         }
 
-        self.right.evaluate(env.clone())
+        self.right.evaluate(env)
     }
 }
 
@@ -380,10 +379,10 @@ impl Expr for Grouping {
         return cucc;
     }
 
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         self.exprs
             .iter()
-            .map(|a| a.evaluate(env.clone()))
+            .map(|a| a.evaluate(env))
             .last()
             .unwrap()
     }
@@ -394,7 +393,7 @@ impl Expr for Grouping {
 }
 
 impl Expr for Variable {
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         match &self.name.lexeme {
             Some(name) => {
                 let a = env.get(name);
@@ -432,8 +431,8 @@ impl Expr for Variable {
 }
 
 impl Expr for Assign {
-    fn evaluate(&self, env: Rc<Environment>) -> Result<Literal, RuntimeError> {
-        let val = self.value.evaluate(env.clone());
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        let val = self.value.evaluate(env);
         let _val = match val {
             Ok(v) => v,
             Err(err) => return Err(err),
