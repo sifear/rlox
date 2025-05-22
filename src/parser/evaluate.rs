@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::environment::Environment;
 use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
 use crate::scanner::token::TokenType;

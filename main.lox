@@ -1,3 +1,4 @@
+var b = "Dani";
 
 for (var i = 0; i < 10; i = i + 1) {
   for (var j = 0; j < 10; j = j + 1) {
@@ -7,3 +8,19 @@ for (var i = 0; i < 10; i = i + 1) {
     }
   }
 }
+
+fun abc(a) {
+    b = b + " "+ a;
+
+    fun cde() {
+        print("cde" + " " + b);
+    }
+
+    cde();
+
+    b = " " + a;
+}
+
+abc(1);
+abc(2);
+abc(3);

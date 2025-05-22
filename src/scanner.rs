@@ -277,5 +277,5 @@ impl<'a> Scanner<'a> {
 }
 
 fn report(line_number: u32, location: String, message: &str) {
-    println!("[line {}] Error {}: {}", line_number, location, message);
+    // println!("[line {}] Error {}: {}", line_number, location, message);
 }

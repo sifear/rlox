@@ -1,11 +1,12 @@
 use crate::{
-    environment::Environment,
-    interpreter::runtime_error::{RuntimeError, RuntimeErrorType},
-    scanner::token::{Token, TokenType},
+    environment::Environment, interpreter::{
+        is_variable::as_variable,
+        runtime_error::{RuntimeError, RuntimeErrorType},
+    }, parser::statement::Statement, scanner::token::{Token, TokenType}
 };
 use core::fmt;
 use core::fmt::Debug;
-use std::any::Any;
+use std::{any::Any, borrow::BorrowMut, cell::RefCell, collections::HashMap, rc::Rc};
 
 use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
 use crate::is_truthy::is_truthy;
@@ -18,16 +19,17 @@ pub trait Expr {
 
 impl Debug for dyn Expr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Expression {{{}}}", self.to_string())
+        // write!(f, "Expression {{{}}}", self.to_string())
+        write!(f, "")
     }
 }
 
 pub struct Empty {}
 
 pub struct Ternery {
-    pub predicate: Box<dyn Expr>,
-    pub true_arm: Box<dyn Expr>,
-    pub false_arm: Box<dyn Expr>,
+    pub predicate: Rc<dyn Expr>,
+    pub true_arm: Rc<dyn Expr>,
+    pub false_arm: Rc<dyn Expr>,
 }
 
 #[derive(Debug, Clone)]
@@ -41,18 +43,25 @@ pub enum Literal {
 
 pub struct Unary {
     op: Token,
-    right: Box<dyn Expr>,
+    right: Rc<dyn Expr>,
 }
+
+pub struct Call {
+    pub calle: Rc<dyn Expr>,
+    pub paren: Token,
+    pub arguments: Vec<Rc<dyn Expr>>,
+}
+
 pub struct Binary {
-    pub left: Box<dyn Expr>,
+    pub left: Rc<dyn Expr>,
     pub op: Token,
-    pub right: Box<dyn Expr>,
+    pub right: Rc<dyn Expr>,
 }
 
 pub struct Logical {
-    pub left: Box<dyn Expr>,
+    pub left: Rc<dyn Expr>,
     pub op: Token,
-    pub right: Box<dyn Expr>,
+    pub right: Rc<dyn Expr>,
 }
 
 pub struct Variable {
@@ -61,29 +70,101 @@ pub struct Variable {
 
 pub struct Assign {
     pub l_value: Token,
-    pub value: Box<dyn Expr>,
+    pub value: Rc<dyn Expr>,
 }
 
 impl Unary {
-    pub fn new(right: Box<dyn Expr>, op: Token) -> Unary {
+    pub fn new(right: Rc<dyn Expr>, op: Token) -> Unary {
         Unary { right, op }
     }
 }
 
 impl Binary {
-    pub fn new(left: Box<dyn Expr>, right: Box<dyn Expr>, op: Token) -> Binary {
+    pub fn new(left: Rc<dyn Expr>, right: Rc<dyn Expr>, op: Token) -> Binary {
         Binary { left, right, op }
     }
 }
 
 #[derive(Debug)]
 pub struct Grouping {
-    pub exprs: Vec<Box<dyn Expr>>,
+    pub exprs: Vec<Rc<dyn Expr>>,
 }
 
 impl fmt::Display for dyn Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_string())
+    }
+}
+
+impl Expr for Call {
+    fn to_string(&self) -> String {
+        format!("<Call expression>")
+    }
+
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        // println!("Evaluating call");
+        // let calle = self.calle.evaluate(env);
+
+        match as_variable(self.calle.as_any()) {
+            Some(fn_name) => {
+                println!("{:?}", fn_name.name);
+                let global_methods_borrow = env.global_methods.borrow();
+                let name = &fn_name.name.lexeme.unwrap();
+                let b = global_methods_borrow.get(name);
+                match b {
+                    Some(val) => {
+                        if val.arity != self.arguments.len() as u32 {
+                            return Err(RuntimeError::new(
+                                RuntimeErrorType::ArgumentCountMismatch,
+                                self.paren.line,
+                            ));
+                        }
+                        let c = *(val.function)();
+                        let d = c.clone();
+                        return Ok(d);
+                    }
+                    None => {
+                        let func = env.get_method(name);
+                        match func {
+                            Some(fun) => {
+                                let mut local_env: Environment = Environment::new();
+                                local_env.values = RefCell::new(HashMap::new());
+                                local_env.enclosing = Some(env);
+
+                                for (index, arg) in fun.arguments.iter().enumerate() {
+                                    if index <= self.arguments.len() {
+                                        let input_value = self.arguments[index].evaluate(env).unwrap();
+                                        let input_identifier = arg.lexeme.as_ref().unwrap().clone();
+                                        local_env.define(input_identifier, Some(input_value));
+                                        // let bbb = local_env.get(&"a".to_string());
+                                        // println!("{:?}", bbb.unwrap().0);
+                                    }
+                                }
+
+                                let a = fun.body.evaluate(&mut local_env);
+                                return a;
+                            },
+                            None => {
+                                return Err(RuntimeError::new(
+                                    RuntimeErrorType::FunctionNameNotFound,
+                                    self.paren.line,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+            None => {
+                return Err(RuntimeError::new(
+                    RuntimeErrorType::NotCallableExpression,
+                    self.paren.line,
+                ));
+            }
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -135,7 +216,7 @@ impl Expr for Literal {
     fn to_string(&self) -> String {
         match self {
             Literal::Null => String::from("(Null literal)"),
-            Literal::Break => String::from("(Break statement)"),
+            Literal::Break => format!("(Break)"),
             Literal::Boolean(true) => String::from("(True literal)"),
             Literal::Boolean(false) => String::from("(False literal)"),
             Literal::Number(n) => format!("(Number literal: {})", n),
@@ -299,7 +380,11 @@ impl Expr for Grouping {
     }
 
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
-        self.exprs.iter().map(|a| a.evaluate(env)).last().unwrap()
+        self.exprs
+            .iter()
+            .map(|a| a.evaluate(env))
+            .last()
+            .unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -350,10 +435,7 @@ impl Expr for Assign {
         let val = self.value.evaluate(env);
         let _val = match val {
             Ok(v) => v,
-            Err(err) => {
-                println!("Error while evaluating right hand side of assignment.");
-                Literal::Null
-            }
+            Err(err) => return Err(err),
         };
 
         match &self.l_value.lexeme {

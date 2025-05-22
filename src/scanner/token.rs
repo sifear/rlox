@@ -98,7 +98,7 @@ impl fmt::Display for TokenType {
             TokenType::While => write!(f, "While"),
             TokenType::QuestionMark => write!(f, "QuestionMark"),
             TokenType::Colon => write!(f, "Colon"),
-            TokenType::Break => write!(f, "Break"),
+            TokenType::Break => write!(f, "break"),
         }
     }
 }
