@@ -5,7 +5,7 @@ use crate::interpreter::is_variable::as_variable;
 use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
 use crate::scanner::token::{Token, TokenType};
 use expression::{Binary, Call, Expr, Unary};
-use statement::{BreakStmt, FunStmt};
+use statement::{FunStmt};
 
 use self::expression::{Assign, Empty, Grouping, Literal, Logical, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
