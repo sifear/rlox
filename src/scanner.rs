@@ -11,6 +11,7 @@ pub struct Scanner<'a> {
     pub tokens: Vec<Token>,
     had_errors: bool,
     line: u32,
+    pos_in_line: u32,
 }
 
 impl<'a> Scanner<'a> {
@@ -22,36 +23,30 @@ impl<'a> Scanner<'a> {
             had_errors: false,
             tokens: vec![],
             line: 0,
+            pos_in_line: 0,
         }
     }
 
     pub fn run(&mut self) {
-        let tokens = match self.scan_tokens(0) {
+        let tokens = self.scan_tokens(0);
+
+        match tokens {
             Ok(tokens) => {
                 self.tokens = tokens;
             }
             Err(err) => {
-                report(1, String::from(""), &err);
+                println!("Error: {} in line {} at cahr pos {}", err.0, err.1, err.2);
                 exit(65);
             }
         };
-
-        // for token in &self.tokens {
-        //     println!("{} in line {}", token.to_string(), token.line);
-        // }
     }
 
-    fn scan_tokens(&mut self, start: i32) -> Result<Vec<Token>, String> {
+    fn scan_tokens(&mut self, start: i32) -> Result<Vec<Token>, (&str, u32, u32)> {
         let mut tokens = vec![];
-        let mut current = start;
 
         loop {
             let next_char = match self.source.next() {
-                Some(ch) => {
-                    current += 1;
-
-                    ch
-                }
+                Some(ch) => ch,
                 None => break,
             };
 
@@ -61,7 +56,7 @@ impl<'a> Scanner<'a> {
                     None => {}
                 },
                 Err(err) => {
-                    report(1, String::from(""), err);
+                    return Result::Err((err, self.line, self.pos_in_line));
                 }
             };
         }
@@ -72,6 +67,8 @@ impl<'a> Scanner<'a> {
     }
 
     fn scan_token(&mut self, next_char: char) -> Result<Option<Token>, &'static str> {
+        self.pos_in_line += 1;
+
         match next_char {
             '(' => Result::Ok(Some(Token::new(TokenType::LeftParen, None, self.line))),
             ')' => Result::Ok(Some(Token::new(TokenType::RightParen, None, self.line))),
@@ -98,6 +95,7 @@ impl<'a> Scanner<'a> {
             '\t' => Ok(None),
             '\n' => {
                 self.line += 1;
+                self.pos_in_line = 0;
                 Ok(None)
             }
             _ => Result::Err("Invalid character in source"),
@@ -119,6 +117,7 @@ impl<'a> Scanner<'a> {
                 {
                     identifier_name.push(*ch);
                     self.source.next();
+                    self.pos_in_line += 1;
                 }
                 _ => break,
             }
@@ -172,6 +171,7 @@ impl<'a> Scanner<'a> {
 
         loop {
             let next: Option<char> = self.source.next();
+            self.pos_in_line += 1;
 
             match next {
                 Some(ch) => {
@@ -180,6 +180,7 @@ impl<'a> Scanner<'a> {
                     }
                     if ch == '\n' {
                         self.line += 1;
+                        self.pos_in_line = 0;
                     }
 
                     literal.push(ch);
@@ -210,6 +211,8 @@ impl<'a> Scanner<'a> {
                     literal.push(*ch);
 
                     self.source.next();
+                    self.pos_in_line += 1;
+
                     decimal_iterator.next();
                 }
                 Some(ch) if *ch == '.' && !had_decimal_point => {
@@ -220,7 +223,9 @@ impl<'a> Scanner<'a> {
                         Some(ach) if ('0'..='9').contains(&ach) => {
                             had_decimal_point = true;
                             literal.push(*ch);
+
                             self.source.next(); // Consume decimal point on outer iterator
+                            self.pos_in_line += 1;
                         }
                         _ => {
                             break;
@@ -247,6 +252,7 @@ impl<'a> Scanner<'a> {
         match self.source.peek() {
             Some(ch) if *ch == factor => {
                 self.source.next();
+                self.pos_in_line += 1;
 
                 Result::Ok(Some(Token::new(token_type_b, None, self.line)))
             }
@@ -258,6 +264,7 @@ impl<'a> Scanner<'a> {
         match self.source.peek() {
             Some(ch) if *ch == '/' => {
                 self.source.next(); // Consume second slash
+                self.pos_in_line += 1;
 
                 loop {
                     let next_char = self.source.peek();
@@ -267,6 +274,7 @@ impl<'a> Scanner<'a> {
                         None => return Ok(None),
                         _ => {
                             self.source.next();
+                            self.pos_in_line += 1;
                         }
                     }
                 }
@@ -274,8 +282,4 @@ impl<'a> Scanner<'a> {
             _ => Result::Ok(Some(Token::new(TokenType::Slash, None, self.line))),
         }
     }
-}
-
-fn report(line_number: u32, location: String, message: &str) {
-    // println!("[line {}] Error {}: {}", line_number, location, message);
 }
