@@ -5,7 +5,7 @@ use crate::interpreter::is_variable::as_variable;
 use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
 use crate::scanner::token::{Token, TokenType};
 use expression::{Binary, Call, Expr, Unary};
-use statement::{FunStmt};
+use statement::{FunStmt, ReturnStmt};
 
 use self::expression::{Assign, Empty, Grouping, Literal, Logical, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
@@ -37,8 +37,11 @@ pub mod statement;
 //                | block
 //                | ifStmt
 //                | breakStmt
+//                | returnStmt
 
 // breakStmt      → "break" ";"
+
+// returnStmt     → "return" expression? ";" ;
 
 // forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
 //                  expression? ";"
@@ -171,6 +174,23 @@ impl<'a> Parser<'a> {
             }
             None => {}
         };
+
+        match self._match_(&[TokenType::Return]) {
+            Some(token) => {
+                let expression = self.expression();
+                if expression.is_err() {
+                    return Err(RuntimeError::new(
+                        RuntimeErrorType::Unknown,
+                        expression.unwrap_err().line,
+                    ));
+                }
+                let semi = self.consume(&TokenType::Semicolon);
+                return Ok(Rc::new(ReturnStmt {
+                    value: expression.unwrap(),
+                }));
+            }
+            None => {}
+        }
 
         self.expr_stmt()
     }

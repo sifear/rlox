@@ -1,8 +1,11 @@
 use crate::{
-    environment::Environment, interpreter::{
+    environment::Environment,
+    interpreter::{
         is_variable::as_variable,
         runtime_error::{RuntimeError, RuntimeErrorType},
-    }, parser::statement::Statement, scanner::token::{Token, TokenType}
+    },
+    parser::statement::Statement,
+    scanner::token::{Token, TokenType},
 };
 use core::fmt;
 use core::fmt::Debug;
@@ -38,6 +41,7 @@ pub enum Literal {
     Number(f64),
     Boolean(bool),
     Break,
+    Return,
     Null,
 }
 
@@ -133,7 +137,8 @@ impl Expr for Call {
 
                                 for (index, arg) in fun.arguments.iter().enumerate() {
                                     if index <= self.arguments.len() {
-                                        let input_value = self.arguments[index].evaluate(env).unwrap();
+                                        let input_value =
+                                            self.arguments[index].evaluate(env).unwrap();
                                         let input_identifier = arg.lexeme.as_ref().unwrap().clone();
                                         local_env.define(input_identifier, Some(input_value));
                                         // let bbb = local_env.get(&"a".to_string());
@@ -143,7 +148,7 @@ impl Expr for Call {
 
                                 let a = fun.body.evaluate(&mut local_env);
                                 return a;
-                            },
+                            }
                             None => {
                                 return Err(RuntimeError::new(
                                     RuntimeErrorType::FunctionNameNotFound,
@@ -217,10 +222,11 @@ impl Expr for Literal {
         match self {
             Literal::Null => String::from("(Null literal)"),
             Literal::Break => format!("(Break)"),
-            Literal::Boolean(true) => String::from("(True literal)"),
-            Literal::Boolean(false) => String::from("(False literal)"),
-            Literal::Number(n) => format!("(Number literal: {})", n),
-            Literal::String(str_val) => format!("(String literal: {})", str_val),
+            Literal::Return => format!("(Return)"),
+            Literal::Boolean(true) => String::from("true"),
+            Literal::Boolean(false) => String::from("false"),
+            Literal::Number(n) => format!("{}", n),
+            Literal::String(str_val) => format!("{}", str_val),
         }
     }
 
@@ -380,11 +386,7 @@ impl Expr for Grouping {
     }
 
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
-        self.exprs
-            .iter()
-            .map(|a| a.evaluate(env))
-            .last()
-            .unwrap()
+        self.exprs.iter().map(|a| a.evaluate(env)).last().unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -409,7 +411,7 @@ impl Expr for Variable {
                         Ok(b.0.clone())
                     }
                     None => Err(RuntimeError::new(
-                        RuntimeErrorType::IdentifierNotDefined,
+                        RuntimeErrorType::IdentifierNotDefined(String::from(name)),
                         self.name.line,
                     )),
                 }
@@ -445,13 +447,13 @@ impl Expr for Assign {
                     Ok(_val)
                 } else {
                     Err(RuntimeError::new(
-                        RuntimeErrorType::IdentifierNotDefined,
+                        RuntimeErrorType::IdentifierNotDefined(String::from(a)),
                         self.l_value.line,
                     ))
                 }
             }
             None => Err(RuntimeError::new(
-                RuntimeErrorType::IdentifierNotDefined,
+                RuntimeErrorType::IdentifierNotDefined(String::from("?")),
                 self.l_value.line,
             )),
         }

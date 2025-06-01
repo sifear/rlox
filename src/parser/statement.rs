@@ -11,12 +11,16 @@ use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap};
 pub trait Statement: Any {
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>;
     fn to_string(&self) -> String;
+    fn as_any(&self) -> &dyn Any;
 }
 
 impl dyn Statement {
     // Helper method to check the type
     fn is<T: Any>(&self) -> bool {
         self.type_id() == std::any::TypeId::of::<T>()
+    }
+    fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        self.as_any().downcast_ref::<T>()
     }
 }
 
@@ -62,6 +66,10 @@ pub struct WhileStmt {
 
 pub struct BreakStmt {}
 
+pub struct ReturnStmt {
+    pub value: Rc<dyn Expr>,
+}
+
 impl Statement for IfStmt {
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         let cond_eval = self.cond.evaluate(env);
@@ -83,6 +91,10 @@ impl Statement for IfStmt {
     fn to_string(&self) -> String {
         format!("<If stmt>")
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Statement for BlockStmt {
@@ -103,6 +115,21 @@ impl Statement for BlockStmt {
                     Literal::Break => {
                         return Ok(Literal::Break);
                     }
+                    Literal::Return => {
+                        let a = statement.as_ref().downcast_ref::<ReturnStmt>().unwrap();
+
+                        match a.value.evaluate(&mut local_env) {
+                            Ok(a) => {
+                                return Ok(a);
+                            }
+                            Err(err) => {
+                                println!("aaa: {}", err)
+                            }
+                        }
+                        // let b = a.value.evaluate(env)
+
+                        // return Ok(b);
+                    }
                     _ => {
                         last_value = val;
                     }
@@ -115,6 +142,10 @@ impl Statement for BlockStmt {
 
         Ok(last_value)
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Statement for ExprStmt {
@@ -124,6 +155,10 @@ impl Statement for ExprStmt {
 
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         self.expr.evaluate(env)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -141,6 +176,10 @@ impl Statement for PrintStmt {
         println!("{}", res.unwrap().to_string());
 
         Ok(Literal::Null)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -171,6 +210,10 @@ impl Statement for VarStmt {
 
         Ok(Literal::Null)
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Statement for FunStmt {
@@ -189,6 +232,10 @@ impl Statement for FunStmt {
         );
 
         Ok(Literal::Null)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -226,13 +273,36 @@ impl Statement for WhileStmt {
     fn to_string(&self) -> String {
         format!("<While stmt>")
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl Statement for BreakStmt {
     fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
         Ok(Literal::Break)
     }
+
     fn to_string(&self) -> String {
         format!("<Break stmt>")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Statement for ReturnStmt {
+    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+        Ok(Literal::Return)
+    }
+
+    fn to_string(&self) -> String {
+        format!("<Return stmt>")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

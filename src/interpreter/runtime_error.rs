@@ -13,7 +13,7 @@ pub enum RuntimeErrorType {
     StatementMissingSemicolon,
     VarInitializerExpected,
     IdentifierExpedcted,
-    IdentifierNotDefined,
+    IdentifierNotDefined(String),
     IdentifierTokenNotSaved,
     InvalidAssignmentTarget,
     AccessToUninitiaizedVariable,
@@ -42,7 +42,7 @@ impl RuntimeError {
 
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.error_type {
+        match &self.error_type {
             RuntimeErrorType::ArithmeticInvalidOperand => write!(
                 f,
                 "Invalid operands of arithmetic expression at line {}",
@@ -85,8 +85,12 @@ impl fmt::Display for RuntimeError {
             RuntimeErrorType::IdentifierExpedcted => {
                 write!(f, "Identifier expression is expected at line {}", self.line)
             }
-            RuntimeErrorType::IdentifierNotDefined => {
-                write!(f, "Identifier not defined at line {}", self.line)
+            RuntimeErrorType::IdentifierNotDefined(ident_name) => {
+                write!(
+                    f,
+                    "Identifier >{ident_name}< not defined at line {}",
+                    self.line
+                )
             }
             RuntimeErrorType::IdentifierTokenNotSaved => {
                 write!(f, "Identifier token not saved at line {}", self.line)
@@ -117,21 +121,13 @@ impl fmt::Display for RuntimeError {
                 "Missing end parenthesis after for loop condition at line {}",
                 self.line
             ),
-            RuntimeErrorType::ExpressionExpected => write!(
-                f,
-                "Expression expected at line {}",
-                self.line
-            ),
-            RuntimeErrorType::UnexpextedBreakStatement => write!(
-                f,
-                "Unexpected break sttatement at {}",
-                self.line
-            ),
-            RuntimeErrorType::Unknown => write!(
-                f,
-                "Unknown error at line {}",
-                self.line
-            ),
+            RuntimeErrorType::ExpressionExpected => {
+                write!(f, "Expression expected at line {}", self.line)
+            }
+            RuntimeErrorType::UnexpextedBreakStatement => {
+                write!(f, "Unexpected break sttatement at {}", self.line)
+            }
+            RuntimeErrorType::Unknown => write!(f, "Unknown error at line {}", self.line),
             RuntimeErrorType::ExpressionExpected => {
                 write!(f, "Expression expected at line {}", self.line)
             }
@@ -142,7 +138,11 @@ impl fmt::Display for RuntimeError {
                 write!(f, "Function name not found at {}", self.line)
             }
             RuntimeErrorType::ArgumentCountMismatch => {
-                write!(f, "Not enough or too much arguments supplied at line {}", self.line)
+                write!(
+                    f,
+                    "Not enough or too much arguments supplied at line {}",
+                    self.line
+                )
             }
             RuntimeErrorType::Unknown => write!(f, "Unknown error at line {}", self.line),
         }

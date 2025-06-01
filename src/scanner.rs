@@ -33,15 +33,19 @@ impl<'a> Scanner<'a> {
         match tokens {
             Ok(tokens) => {
                 self.tokens = tokens;
+                return;
             }
             Err(err) => {
-                println!("Error: {} in line {} at cahr pos {}", err.0, err.1, err.2);
+                println!(
+                    "Error: {} in line {} at char pos {}",
+                    err, self.line, self.pos_in_line
+                );
                 exit(65);
             }
         };
     }
 
-    fn scan_tokens(&mut self, start: i32) -> Result<Vec<Token>, (&str, u32, u32)> {
+    fn scan_tokens(&mut self, start: i32) -> Result<Vec<Token>, &'static str> {
         let mut tokens = vec![];
 
         loop {
@@ -56,7 +60,7 @@ impl<'a> Scanner<'a> {
                     None => {}
                 },
                 Err(err) => {
-                    return Result::Err((err, self.line, self.pos_in_line));
+                    return Result::Err(err);
                 }
             };
         }
