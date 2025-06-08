@@ -227,12 +227,15 @@ impl Statement for FunStmt {
     fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         env.borrow().define_method(
             self.name.clone(),
-            Rc::new(FunStmt {
-                arguments: self.arguments.clone(),
-                body: self.body.clone(),
-                name: self.name.clone(),
-                closure: self.closure.clone(),
-            }),
+            Literal::FnObject(
+                self.name.clone(),
+                Rc::new(FunStmt {
+                    arguments: self.arguments.clone(),
+                    body: self.body.clone(),
+                    name: self.name.clone(),
+                    closure: env.clone(),
+                }),
+            ),
         );
 
         Ok(Literal::Null)

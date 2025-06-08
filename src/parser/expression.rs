@@ -4,7 +4,7 @@ use crate::{
         is_variable::as_variable,
         runtime_error::{RuntimeError, RuntimeErrorType},
     },
-    parser::statement::Statement,
+    parser::statement::{FunStmt, Statement},
     scanner::token::{Token, TokenType},
 };
 use core::fmt;
@@ -35,11 +35,12 @@ pub struct Ternery {
     pub false_arm: Rc<dyn Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Literal {
     String(String),
     Number(f64),
     Boolean(bool),
+    FnObject(String, Rc<FunStmt>),
     Break,
     Return,
     Null,
@@ -112,7 +113,7 @@ impl Expr for Call {
         match as_variable(self.calle.as_any()) {
             Some(fn_name) => {
                 println!("{:?}", fn_name.name);
-                let env_ref = env.borrow(); 
+                let env_ref = env.borrow();
                 let global_methods_borrow = env_ref.global_methods.borrow();
                 let name = &fn_name.name.lexeme.unwrap();
                 let b = global_methods_borrow.get(name);
@@ -130,19 +131,20 @@ impl Expr for Call {
                     }
                     None => {
                         let func = env.borrow().get_method(name);
+
                         match func {
                             Some(fun) => {
-                                let local_env = Rc::new(RefCell::new(Environment::new(
-                                    RefCell::new(HashMap::new()),
-                                    Some(env.clone()),
-                                )));
+                                // let local_env = Rc::new(RefCell::new(Environment::new(
+                                //     RefCell::new(HashMap::new()),
+                                //     Some(env.clone()),
+                                // )));
 
                                 for (index, arg) in fun.arguments.iter().enumerate() {
                                     if index <= self.arguments.len() {
                                         let input_value =
                                             self.arguments[index].evaluate(env.clone()).unwrap();
                                         let input_identifier = arg.lexeme.as_ref().unwrap().clone();
-                                        local_env
+                                        fun.closure
                                             .borrow()
                                             .define(input_identifier, Some(input_value));
                                         // let bbb = local_env.get(&"a".to_string());
@@ -150,10 +152,11 @@ impl Expr for Call {
                                     }
                                 }
 
-                                let a = fun.body.evaluate(local_env);
+                                let a = fun.body.evaluate(fun.closure.clone());
                                 return a;
                             }
                             None => {
+                                println!("{}", name);
                                 return Err(RuntimeError::new(
                                     RuntimeErrorType::FunctionNameNotFound,
                                     self.paren.line,
@@ -230,6 +233,7 @@ impl Expr for Literal {
             Literal::Boolean(true) => String::from("true"),
             Literal::Boolean(false) => String::from("false"),
             Literal::Number(n) => format!("{}", n),
+            Literal::FnObject(a, b) => format!("fn object {}", a),
             Literal::String(str_val) => format!("{}", str_val),
         }
     }
@@ -390,7 +394,11 @@ impl Expr for Grouping {
     }
 
     fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
-        self.exprs.iter().map(|a| a.evaluate(env.clone())).last().unwrap()
+        self.exprs
+            .iter()
+            .map(|a| a.evaluate(env.clone()))
+            .last()
+            .unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -414,10 +422,16 @@ impl Expr for Variable {
 
                         Ok(b.0.clone())
                     }
-                    None => Err(RuntimeError::new(
-                        RuntimeErrorType::IdentifierNotDefined(String::from(name)),
-                        self.name.line,
-                    )),
+                    None => {
+                        let method = env.borrow().get_method(name);
+                        match method {
+                            Some(a) => Ok(Literal::FnObject(String::from(name), a.clone())),
+                            None => Err(RuntimeError::new(
+                                RuntimeErrorType::IdentifierNotDefined(String::from(name)),
+                                self.name.line,
+                            )),
+                        }
+                    }
                 }
             }
             None => Err(RuntimeError::new(

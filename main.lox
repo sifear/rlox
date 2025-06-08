@@ -1,13 +1,31 @@
 fun makeCounter() {
   var i = 0;
+
   fun count() {
+    var middle = 10;
+
     i = i + 1;
     print i;
+
+    fun inner() {  
+        print middle;
+        middle = middle + i;
+    }
+
+    return inner;
   }
 
   return count;
 }
 
 var counter = makeCounter();
-counter(); // "1".
-counter(); // "2".
+var aaa = counter(); // "1".
+var bbb = counter(); // "2".
+counter(); // "3".
+counter(); // "4".
+
+aaa();
+aaa();
+aaa();
+
+bbb();

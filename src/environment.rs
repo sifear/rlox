@@ -11,12 +11,13 @@ pub struct Environment {
     pub values: RefCell<HashMap<String, (Literal, bool)>>,
     pub enclosing: Option<Rc<RefCell<Environment>>>,
     pub global_methods: RefCell<HashMap<String, Callable>>,
-    pub local_methods: RefCell<HashMap<String, Rc<FunStmt>>>,
 }
 
 impl Environment {
-    pub fn new(_values: RefCell<HashMap<String, (Literal, bool)>>, _enclosing: Option<Rc<RefCell<Environment>>>) -> Environment {
-        let local_methods: RefCell<HashMap<String, Rc<FunStmt>>> = RefCell::new(HashMap::new());
+    pub fn new(
+        _values: RefCell<HashMap<String, (Literal, bool)>>,
+        _enclosing: Option<Rc<RefCell<Environment>>>,
+    ) -> Environment {
         let global_methods: RefCell<HashMap<String, Callable>> = RefCell::new(HashMap::new());
 
         {
@@ -43,7 +44,6 @@ impl Environment {
             enclosing: _enclosing,
             values: _values,
             global_methods,
-            local_methods,
         }
     }
 
@@ -59,8 +59,8 @@ impl Environment {
             .insert(identifier, (_value, initialized));
     }
 
-    pub fn define_method(&self, identifier: String, value: Rc<FunStmt>) {
-        self.local_methods.borrow_mut().insert(identifier, value);
+    pub fn define_method(&self, identifier: String, value: Literal) {
+        self.values.borrow_mut().insert(identifier, (value, true));
     }
 
     pub fn assign(&self, identifier: &String, value: &Literal) -> bool {
@@ -100,11 +100,14 @@ impl Environment {
     }
 
     pub fn get_method(&self, identifier: &String) -> Option<Rc<FunStmt>> {
-        let values = self.local_methods.borrow();
+        let values = self.values.borrow();
         let res = values.get(identifier);
 
         match res {
-            Some(func) => return Some(func.clone()),
+            Some(func) => match &func.0 {
+                Literal::FnObject(name, fn_obj) => return Some(fn_obj.clone()),
+                _ => {}
+            },
             None => {}
         }
 
