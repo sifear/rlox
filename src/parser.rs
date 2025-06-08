@@ -1,6 +1,9 @@
 use std::any::{Any, TypeId};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
+use crate::environment::Environment;
 use crate::interpreter::is_variable::as_variable;
 use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
 use crate::scanner::token::{Token, TokenType};
@@ -571,6 +574,10 @@ impl<'a> Parser<'a> {
                 name: identifier_name,
                 arguments,
                 body: Rc::new(BlockStmt { stmts }),
+                closure: Rc::new(RefCell::new(Environment::new(
+                    RefCell::new(HashMap::new()),
+                    None,
+                ))),
             })),
             Err(err) => return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line)),
         }

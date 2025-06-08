@@ -1,18 +1,21 @@
 use std::{
-    cell::RefCell, collections::HashMap, rc::Rc, time::{SystemTime, UNIX_EPOCH}
+    cell::RefCell,
+    collections::HashMap,
+    rc::Rc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::parser::{expression::Literal, method::Callable, statement::FunStmt};
 
-pub struct Environment<'a> {
+pub struct Environment {
     pub values: RefCell<HashMap<String, (Literal, bool)>>,
-    pub enclosing: Option<&'a Environment<'a>>,
+    pub enclosing: Option<Rc<RefCell<Environment>>>,
     pub global_methods: RefCell<HashMap<String, Callable>>,
     pub local_methods: RefCell<HashMap<String, Rc<FunStmt>>>,
 }
 
-impl <'a>Environment<'a> {
-    pub fn new() -> Environment<'a> {
+impl Environment {
+    pub fn new(_values: RefCell<HashMap<String, (Literal, bool)>>, _enclosing: Option<Rc<RefCell<Environment>>>) -> Environment {
         let local_methods: RefCell<HashMap<String, Rc<FunStmt>>> = RefCell::new(HashMap::new());
         let global_methods: RefCell<HashMap<String, Callable>> = RefCell::new(HashMap::new());
 
@@ -37,8 +40,8 @@ impl <'a>Environment<'a> {
         }
 
         Environment {
-            enclosing: None,
-            values: RefCell::new(HashMap::new()),
+            enclosing: _enclosing,
+            values: _values,
             global_methods,
             local_methods,
         }
@@ -55,11 +58,9 @@ impl <'a>Environment<'a> {
             .borrow_mut()
             .insert(identifier, (_value, initialized));
     }
-    
+
     pub fn define_method(&self, identifier: String, value: Rc<FunStmt>) {
-        self.local_methods
-            .borrow_mut()
-            .insert(identifier, value);
+        self.local_methods.borrow_mut().insert(identifier, value);
     }
 
     pub fn assign(&self, identifier: &String, value: &Literal) -> bool {
@@ -71,13 +72,9 @@ impl <'a>Environment<'a> {
 
                 true
             }
-            None => match self.enclosing {
+            None => match &self.enclosing {
                 Some(enclosing) => {
-                    enclosing.assign(identifier, value);
-                    // enclosing
-                    //     .values
-                    //     .borrow_mut()
-                    //     .insert(identifier.clone(), (value.clone(), true));
+                    enclosing.borrow().assign(identifier, value);
 
                     return true;
                 }
@@ -96,7 +93,7 @@ impl <'a>Environment<'a> {
         }
 
         if let Some(enclosing) = &self.enclosing {
-            return enclosing.get(identifier);
+            return enclosing.borrow().get(identifier);
         }
 
         None
@@ -112,7 +109,7 @@ impl <'a>Environment<'a> {
         }
 
         if let Some(enclosing) = &self.enclosing {
-            return enclosing.get_method(identifier);
+            return enclosing.borrow().get_method(identifier);
         }
 
         None

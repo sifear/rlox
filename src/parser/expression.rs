@@ -16,7 +16,7 @@ use crate::is_truthy::is_truthy;
 
 pub trait Expr {
     fn to_string(&self) -> String;
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>;
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError>;
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -105,14 +105,15 @@ impl Expr for Call {
         format!("<Call expression>")
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         // println!("Evaluating call");
         // let calle = self.calle.evaluate(env);
 
         match as_variable(self.calle.as_any()) {
             Some(fn_name) => {
                 println!("{:?}", fn_name.name);
-                let global_methods_borrow = env.global_methods.borrow();
+                let env_ref = env.borrow(); 
+                let global_methods_borrow = env_ref.global_methods.borrow();
                 let name = &fn_name.name.lexeme.unwrap();
                 let b = global_methods_borrow.get(name);
                 match b {
@@ -128,25 +129,28 @@ impl Expr for Call {
                         return Ok(d);
                     }
                     None => {
-                        let func = env.get_method(name);
+                        let func = env.borrow().get_method(name);
                         match func {
                             Some(fun) => {
-                                let mut local_env: Environment = Environment::new();
-                                local_env.values = RefCell::new(HashMap::new());
-                                local_env.enclosing = Some(env);
+                                let local_env = Rc::new(RefCell::new(Environment::new(
+                                    RefCell::new(HashMap::new()),
+                                    Some(env.clone()),
+                                )));
 
                                 for (index, arg) in fun.arguments.iter().enumerate() {
                                     if index <= self.arguments.len() {
                                         let input_value =
-                                            self.arguments[index].evaluate(env).unwrap();
+                                            self.arguments[index].evaluate(env.clone()).unwrap();
                                         let input_identifier = arg.lexeme.as_ref().unwrap().clone();
-                                        local_env.define(input_identifier, Some(input_value));
+                                        local_env
+                                            .borrow()
+                                            .define(input_identifier, Some(input_value));
                                         // let bbb = local_env.get(&"a".to_string());
                                         // println!("{:?}", bbb.unwrap().0);
                                     }
                                 }
 
-                                let a = fun.body.evaluate(&mut local_env);
+                                let a = fun.body.evaluate(local_env);
                                 return a;
                             }
                             None => {
@@ -178,7 +182,7 @@ impl Expr for Empty {
         format!("<Discarded expression>")
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         return Ok(Literal::Null);
     }
 
@@ -199,16 +203,16 @@ impl Expr for Ternery {
         return cucc;
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
-        let res_of_predicate = self.predicate.evaluate(env);
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+        let res_of_predicate = self.predicate.evaluate(env.clone());
         if res_of_predicate.is_err() {
             return res_of_predicate;
         }
 
         if is_truthy(&res_of_predicate.unwrap()) {
-            self.true_arm.evaluate(env)
+            self.true_arm.evaluate(env.clone())
         } else {
-            self.false_arm.evaluate(env)
+            self.false_arm.evaluate(env.clone())
         }
     }
 
@@ -230,7 +234,7 @@ impl Expr for Literal {
         }
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         return Ok(self.clone());
     }
 
@@ -244,7 +248,7 @@ impl Expr for Unary {
         format!("({} {})", self.op, self.right)
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus => {
                 let ampl = self.right.evaluate(env);
@@ -282,10 +286,10 @@ impl Expr for Binary {
     fn to_string(&self) -> String {
         format!("({} {} {})", self.op, self.left, self.right)
     }
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus | TokenType::Star | TokenType::Slash => {
-                let res = arithmetic(self, env);
+                let res = arithmetic(self, env.clone());
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -296,7 +300,7 @@ impl Expr for Binary {
                 }
             }
             TokenType::Plus => {
-                let res = plus(&self, env);
+                let res = plus(&self, env.clone());
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -349,8 +353,8 @@ impl Expr for Logical {
         self
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
-        let mut left = self.left.evaluate(env);
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+        let left = self.left.evaluate(env.clone());
         if left.is_err() {
             return left;
         }
@@ -366,7 +370,7 @@ impl Expr for Logical {
             }
         }
 
-        self.right.evaluate(env)
+        self.right.evaluate(env.clone())
     }
 }
 
@@ -385,8 +389,8 @@ impl Expr for Grouping {
         return cucc;
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
-        self.exprs.iter().map(|a| a.evaluate(env)).last().unwrap()
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+        self.exprs.iter().map(|a| a.evaluate(env.clone())).last().unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -395,10 +399,10 @@ impl Expr for Grouping {
 }
 
 impl Expr for Variable {
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         match &self.name.lexeme {
             Some(name) => {
-                let a = env.get(name);
+                let a = env.borrow().get(name);
                 match a {
                     Some(b) => {
                         if !b.1 {
@@ -433,8 +437,8 @@ impl Expr for Variable {
 }
 
 impl Expr for Assign {
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
-        let val = self.value.evaluate(env);
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+        let val = self.value.evaluate(env.clone());
         let _val = match val {
             Ok(v) => v,
             Err(err) => return Err(err),
@@ -442,7 +446,7 @@ impl Expr for Assign {
 
         match &self.l_value.lexeme {
             Some(a) => {
-                let success = env.assign(&a, &_val);
+                let success = env.borrow().assign(&a, &_val);
                 if success {
                     Ok(_val)
                 } else {

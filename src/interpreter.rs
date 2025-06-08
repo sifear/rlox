@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{environment::Environment, parser::statement::Statement};
 
@@ -15,10 +15,13 @@ impl Interpreter {
     }
 
     pub fn interpret(&mut self) {
-        let global_env = Environment::new();
+        let global_env = Rc::new(RefCell::new(Environment::new(
+            RefCell::new(HashMap::new()),
+            None,
+        )));
 
         for stmt in &self.statements {
-            match stmt.evaluate(&global_env) {
+            match stmt.evaluate(global_env.clone()) {
                 Ok(value) => {}
                 Err(err) => {
                     println!("{err}")

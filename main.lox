@@ -1,12 +1,13 @@
-fun abc(a) {
-    var b = 2 * a;
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print i;
+  }
 
-    if(b > 3) {
-        return b;
-    } else {
-        return "Dani";
-    }
+  return count;
 }
 
-var result = abc(1);
-print(result);
+var counter = makeCounter();
+counter(); // "1".
+counter(); // "2".

@@ -5,11 +5,12 @@ use super::expression::{Expr, Literal};
 use crate::interpreter::runtime_error::RuntimeError;
 use core::fmt::Debug;
 use std::any::{Any, TypeId};
+use std::mem;
 use std::rc::Rc;
 use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap};
 
 pub trait Statement: Any {
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError>;
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError>;
     fn to_string(&self) -> String;
     fn as_any(&self) -> &dyn Any;
 }
@@ -51,6 +52,7 @@ pub struct FunStmt {
     pub name: String,
     pub arguments: Vec<Token>,
     pub body: Rc<BlockStmt>,
+    pub closure: Rc<RefCell<Environment>>,
 }
 
 pub struct IfStmt {
@@ -71,8 +73,8 @@ pub struct ReturnStmt {
 }
 
 impl Statement for IfStmt {
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
-        let cond_eval = self.cond.evaluate(env);
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+        let cond_eval = self.cond.evaluate(env.clone());
         if cond_eval.is_err() {
             // println!("{}", cond_eval.unwrap_err());
             return Ok(Literal::Null);
@@ -102,14 +104,15 @@ impl Statement for BlockStmt {
         format!("<Block stmt>")
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         let mut last_value = Literal::Null;
-        let mut local_env: Environment = Environment::new();
-        local_env.values = RefCell::new(HashMap::new());
-        local_env.enclosing = Some(env);
+        let local_env = Rc::new(RefCell::new(Environment::new(
+            RefCell::new(HashMap::new()),
+            Some(env.clone()),
+        )));
 
         for statement in self.stmts.iter() {
-            let res = statement.evaluate(&mut local_env);
+            let res = statement.evaluate(local_env.clone());
             match res {
                 Ok(val) => match val {
                     Literal::Break => {
@@ -118,7 +121,7 @@ impl Statement for BlockStmt {
                     Literal::Return => {
                         let a = statement.as_ref().downcast_ref::<ReturnStmt>().unwrap();
 
-                        match a.value.evaluate(&mut local_env) {
+                        match a.value.evaluate(local_env.clone()) {
                             Ok(a) => {
                                 return Ok(a);
                             }
@@ -153,7 +156,7 @@ impl Statement for ExprStmt {
         format!("<ExprStmt stmt>")
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         self.expr.evaluate(env)
     }
 
@@ -167,7 +170,7 @@ impl Statement for PrintStmt {
         format!("<Print stmt>")
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         let res = self.expr.evaluate(env);
         if res.is_err() {
             return res;
@@ -188,10 +191,10 @@ impl Statement for VarStmt {
         format!("<Var stmt {:?}>", self.name.lexeme.clone().unwrap())
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         let initial_value = match &self.initializer {
             Some(initer) => {
-                let res = initer.evaluate(env);
+                let res = initer.evaluate(env.clone());
                 if res.is_err() {
                     return res;
                 }
@@ -202,7 +205,7 @@ impl Statement for VarStmt {
         };
 
         match &self.name.lexeme {
-            Some(name) => env.define(name.clone(), initial_value),
+            Some(name) => env.borrow().define(name.clone(), initial_value),
             None => {
                 // Runtime exception?
             }
@@ -221,13 +224,14 @@ impl Statement for FunStmt {
         format!("<Fun stmt {:?}>", self.name)
     }
 
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
-        env.define_method(
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+        env.borrow().define_method(
             self.name.clone(),
             Rc::new(FunStmt {
                 arguments: self.arguments.clone(),
                 body: self.body.clone(),
                 name: self.name.clone(),
+                closure: self.closure.clone(),
             }),
         );
 
@@ -240,11 +244,11 @@ impl Statement for FunStmt {
 }
 
 impl Statement for WhileStmt {
-    fn evaluate<'a>(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate<'a>(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         // println!("{:?}", self.body);
         // println!("{:?}", self.cond);
         loop {
-            let cond = self.cond.evaluate(env);
+            let cond = self.cond.evaluate(env.clone());
             if cond.is_err() {
                 return cond;
             }
@@ -253,7 +257,7 @@ impl Statement for WhileStmt {
                 return Ok(Literal::Null);
             }
 
-            let block_eval = self.body.evaluate(env);
+            let block_eval = self.body.evaluate(env.clone());
             if block_eval.is_err() {
                 return block_eval;
             }
@@ -280,7 +284,7 @@ impl Statement for WhileStmt {
 }
 
 impl Statement for BreakStmt {
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         Ok(Literal::Break)
     }
 
@@ -294,7 +298,7 @@ impl Statement for BreakStmt {
 }
 
 impl Statement for ReturnStmt {
-    fn evaluate(&self, env: &Environment) -> Result<Literal, RuntimeError> {
+    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
         Ok(Literal::Return)
     }
 
