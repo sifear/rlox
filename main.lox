@@ -7,9 +7,11 @@ fun makeCounter() {
     i = i + 1;
     print i;
 
-    fun inner() {  
+    fun inner(aaa) {  
+        var mostinner = 8; 
+        middle = middle + aaa + mostinner;
         print middle;
-        middle = middle + i;
+        mostinner = mostinner -1;
     }
 
     return inner;
@@ -24,8 +26,8 @@ var bbb = counter(); // "2".
 counter(); // "3".
 counter(); // "4".
 
-aaa();
-aaa();
-aaa();
+aaa(1000);
+aaa(1000);
+aaa(1000);
 
-bbb();
+bbb(1);
