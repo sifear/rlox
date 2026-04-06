@@ -17,7 +17,7 @@ pub fn run_file(path: &String) {
     let mut parser = Parser::new(&scanner.tokens);
     let statements = parser.parse();
 
-    // println!("{:?}", statements);
+    // println!(":{:?}", statements);
 
     let mut interpreter = Interpreter::new(statements);
     interpreter.interpret();
@@ -41,5 +41,17 @@ pub fn run_prompt() {
         let mut interpreter = Interpreter::new(statements);
         interpreter.interpret();
 
+    }
+}
+
+
+mod tests {
+    use super::run_file;
+
+    #[test]
+    fn test1() {
+        run_file(&("main.lox".to_string()));
+
+        assert_eq!(1, 1)
     }
 }

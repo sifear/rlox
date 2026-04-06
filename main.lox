@@ -1,33 +1,10 @@
-fun makeCounter() {
-  var i = 0;
-
-  fun count() {
-    var middle = 10;
-
-    i = i + 1;
-    print i;
-
-    fun inner(aaa) {  
-        var mostinner = 8; 
-        middle = middle + aaa + mostinner;
-        print middle;
-        mostinner = mostinner -1;
-    }
-
-    return inner;
-  }
-
-  return count;
+fun makeCounter(callback) {
+  print "Calling the method start";
+  callback("dani", 1234);
+  print "Calling the method end";
 }
 
-var counter = makeCounter();
-var aaa = counter(); // "1".
-var bbb = counter(); // "2".
-counter(); // "3".
-counter(); // "4".
-
-aaa(1000);
-aaa(1000);
-aaa(1000);
-
-bbb(1);
+makeCounter((input, second) => {
+  print input;
+  print second;
+});

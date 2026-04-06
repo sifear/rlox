@@ -107,7 +107,7 @@ impl Expr for Call {
     }
 
     fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
-        // println!("Evaluating call");
+        println!("Evaluating call");
         // let calle = self.calle.evaluate(env);
 
         match as_variable(self.calle.as_any()) {

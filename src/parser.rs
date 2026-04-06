@@ -620,6 +620,11 @@ impl<'a> Parser<'a> {
             None => {}
         }
 
+        if self._match_(&[TokenType::LeftParen]).is_some() {
+            self.consume(&TokenType::LeftParen);
+            return self.lambda();
+        }
+
         let expr = self.assignment();
 
         match errorous_binary_pos {
@@ -663,6 +668,62 @@ impl<'a> Parser<'a> {
         };
 
         expr
+    }
+
+    fn lambda(&mut self) -> Result<Rc<dyn Expr>, ParserError> {
+        let mut arguments = vec![];
+
+        if !self.check(&TokenType::RightParen) {
+            loop {
+                let arg = self.consume(&TokenType::Identifier);
+                if arg.is_ok() {
+                    arguments.push(arg.unwrap());
+                } else {
+                    return Err(ParserError::new(
+                        ParserErrorType::Generic,
+                        arg.unwrap().line,
+                    ));
+                }
+
+                match self._match_(&[TokenType::Comma]) {
+                    Some(_) => {}
+                    None => {
+                        break;
+                    }
+                }
+            }
+        }
+
+        let res = self.consume(&TokenType::RightParen);
+
+        if res.is_err() {
+            return Err(ParserError::new(
+                ParserErrorType::Generic,
+                res.unwrap_err().line,
+            ));
+        }
+
+        self.consume(&TokenType::Equal);
+        self.consume(&TokenType::Greater);
+
+        self.consume(&TokenType::LeftBrace);
+
+        let body = self.block_stmt();
+        match body {
+            Ok(stmts) => Ok(Rc::new(Literal::FnObject(
+                String::from("name"),
+                Rc::new(FunStmt {
+                    name: String::from("name"),
+                    arguments,
+                    body: Rc::new(BlockStmt { stmts }),
+                    closure: Rc::new(RefCell::new(Environment::new(
+                        RefCell::new(HashMap::new()),
+                        None,
+                    ))),
+                }),
+            ))),
+            Err(err) => return Err(ParserError::new(ParserErrorType::Generic, err.line)),
+        }
     }
 
     fn assignment(&mut self) -> Result<Rc<dyn Expr>, ParserError> {
