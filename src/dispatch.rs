@@ -17,9 +17,9 @@ pub fn run_file(path: &String) -> String {
     let mut parser = Parser::new(&scanner.tokens);
     let statements = parser.parse();
 
-    // println!(":{:?}", statements);
 
     let mut interpreter = Interpreter::new(statements);
+    interpreter.print_ast();
     interpreter.interpret();
 
     print!("{}", interpreter.result_buffer);

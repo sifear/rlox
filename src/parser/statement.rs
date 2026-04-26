@@ -1,3 +1,5 @@
+use crate::parser::expression::Call;
+use crate::parser::method::Callable;
 use crate::scanner::token::Token;
 use crate::{environment::Environment, is_truthy::is_truthy};
 
@@ -7,15 +9,14 @@ use core::fmt::{self, Debug};
 use std::any::{Any, TypeId};
 use std::rc::Rc;
 use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap};
-use std::{mem, result};
+use std::{iter, mem, result};
 
-pub trait Statement: Any {
+pub trait Statement: Any + fmt::Display {
     fn evaluate(
         &self,
         env: Rc<RefCell<Environment>>,
         result_buffer: &mut String,
     ) -> Result<Literal, RuntimeError>;
-    fn to_string(&self) -> String;
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -105,20 +106,18 @@ impl Statement for IfStmt {
         }
     }
 
-    fn to_string(&self) -> String {
-        format!("<If stmt>")
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-impl Statement for BlockStmt {
-    fn to_string(&self) -> String {
-        format!("<Block stmt>")
+impl fmt::Display for IfStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<If statement>")
     }
+}
 
+impl Statement for BlockStmt {
     fn evaluate(
         &self,
         env: Rc<RefCell<Environment>>,
@@ -170,11 +169,18 @@ impl Statement for BlockStmt {
     }
 }
 
-impl Statement for ExprStmt {
-    fn to_string(&self) -> String {
-        format!("<ExprStmt stmt>")
-    }
+impl fmt::Display for BlockStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut a = write!(f, "<Block stmt>");
+        for stmt in self.stmts.iter() {
+            a = write!(f, "\n\t{}", stmt.to_string());
+        }
 
+        a
+    }
+}
+
+impl Statement for ExprStmt {
     fn evaluate(
         &self,
         env: Rc<RefCell<Environment>>,
@@ -188,11 +194,13 @@ impl Statement for ExprStmt {
     }
 }
 
-impl Statement for PrintStmt {
-    fn to_string(&self) -> String {
-        format!("<Print stmt>")
+impl fmt::Display for ExprStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<ExprStmt stmt>")
     }
+}
 
+impl Statement for PrintStmt {
     fn evaluate(
         &self,
         env: Rc<RefCell<Environment>>,
@@ -204,7 +212,6 @@ impl Statement for PrintStmt {
         }
 
         let content = res.unwrap().to_string();
-        println!("{}", content);
         result_buffer.push_str(&content);
         result_buffer.push_str("\n");
 
@@ -216,11 +223,13 @@ impl Statement for PrintStmt {
     }
 }
 
-impl Statement for VarStmt {
-    fn to_string(&self) -> String {
-        format!("<Var stmt {:?}>", self.name.lexeme.clone().unwrap())
+impl fmt::Display for PrintStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<Print stmt>")
     }
+}
 
+impl Statement for VarStmt {
     fn evaluate(
         &self,
         env: Rc<RefCell<Environment>>,
@@ -253,11 +262,38 @@ impl Statement for VarStmt {
     }
 }
 
-impl Statement for FunStmt {
-    fn to_string(&self) -> String {
-        format!("<Fun stmt {:?}>", self.name)
-    }
+impl fmt::Display for VarStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut res = write!(f, "<Var stmt {:?}>", self.name.lexeme.clone().unwrap());
 
+        if let Some(initializer) = self.initializer.clone() {
+            if let Some(call) = initializer.downcast_ref::<Call>() {
+                res = write!(f, "\n\t{initializer}");
+            }
+        }
+
+        if let Some(initializer) = self.initializer.clone() {
+            if let Some(Callable) = initializer.downcast_ref::<Callable>() {
+                res = write!(f, "\n\t{initializer}");
+            }
+        }
+
+        if let Some(initializer) = self.initializer.clone() {
+            if let Some(literal) = initializer.downcast_ref::<Literal>() {
+                match &literal {
+                    Literal::FnObject(name, b) => {
+                        res = write!(f, "\n\tLambda: {}", b);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        res
+    }
+}
+
+impl Statement for FunStmt {
     fn evaluate(
         &self,
         env: Rc<RefCell<Environment>>,
@@ -297,6 +333,12 @@ impl Statement for FunStmt {
     }
 }
 
+impl fmt::Display for FunStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<Fun stmt {:?}>", self.name)
+    }
+}
+
 impl Statement for WhileStmt {
     fn evaluate<'a>(
         &self,
@@ -332,12 +374,14 @@ impl Statement for WhileStmt {
         }
     }
 
-    fn to_string(&self) -> String {
-        format!("<While stmt>")
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl fmt::Display for WhileStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<While stmt>")
     }
 }
 
@@ -350,12 +394,14 @@ impl Statement for BreakStmt {
         Ok(Literal::Break)
     }
 
-    fn to_string(&self) -> String {
-        format!("<Break stmt>")
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl fmt::Display for BreakStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<Break stmt>")
     }
 }
 
@@ -368,11 +414,13 @@ impl Statement for ReturnStmt {
         Ok(Literal::Return)
     }
 
-    fn to_string(&self) -> String {
-        format!("<Return stmt>")
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl fmt::Display for ReturnStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<Return stmt>")
     }
 }

@@ -14,7 +14,7 @@ use std::{any::Any, borrow::BorrowMut, cell::RefCell, collections::HashMap, rc::
 use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
 use crate::is_truthy::is_truthy;
 
-pub trait Expr {
+pub trait Expr: Any {
     fn to_string(&self) -> String;
     fn evaluate(
         &self,
@@ -22,6 +22,16 @@ pub trait Expr {
         result_buffer: &mut String,
     ) -> Result<Literal, RuntimeError>;
     fn as_any(&self) -> &dyn Any;
+}
+
+impl dyn Expr {
+    // Helper method to check the type
+    fn is<T: Any>(&self) -> bool {
+        self.type_id() == std::any::TypeId::of::<T>()
+    }
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        self.as_any().downcast_ref::<T>()
+    }
 }
 
 impl Debug for dyn Expr {
@@ -132,12 +142,10 @@ impl Expr for Call {
         env: Rc<RefCell<Environment>>,
         result_buffer: &mut String,
     ) -> Result<Literal, RuntimeError> {
-        println!("Evaluating call");
         // let calle = self.calle.evaluate(env);
 
         match as_variable(self.calle.as_any()) {
             Some(fn_name) => {
-                println!("{:?}", fn_name.name);
                 let env_ref = env.borrow();
                 let global_methods_borrow = env_ref.global_methods.borrow();
                 let name = &fn_name.name.lexeme.unwrap();
@@ -178,13 +186,13 @@ impl Expr for Call {
                                     }
                                 }
 
-                                fun.closure.borrow().ls();
+                                println!("calling it here");
+                                env.borrow().ls();
                                 
                                 let a = fun.body.evaluate(fun.closure.clone(), result_buffer);
                                 return a;
                             }
                             None => {
-                                println!("{}", name);
                                 return Err(RuntimeError::new(
                                     RuntimeErrorType::FunctionNameNotFound,
                                     self.paren.line,

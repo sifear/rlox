@@ -52,16 +52,11 @@ impl Environment {
     }
 
     pub fn define(&self, identifier: String, value: Option<Literal>) {
-        println!("Defining {}", identifier);
         let initialized = value.is_some();
         let _value = match value {
             Some(literal) => literal,
             None => Literal::Null,
         };
-
-        if let Some(a) = self.values.borrow_mut().get(&identifier) {
-            println!("Redefining: {}", identifier);
-        }
 
         self.values
             .borrow_mut()
@@ -83,7 +78,6 @@ impl Environment {
             }
             None => match &self.enclosing {
                 Some(enclosing) => {
-                    println!("Not found, searching enclosing");
                     enclosing.borrow().assign(identifier, value);
 
                     return true;
@@ -103,10 +97,8 @@ impl Environment {
         }
 
         if let Some(enclosing) = &self.enclosing {
-            println!("searching enclosing for {}", identifier);
             return enclosing.borrow().get(identifier);
         } else {
-            println!("no more enclosing {}", identifier);
 
         }
 

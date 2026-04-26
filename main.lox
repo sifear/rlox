@@ -1,10 +1,21 @@
-fun makeCounter(callback) {
-  print "Calling the method start";
-  callback("dani", 1234);
-  print "Calling the method end";
+var a = 999;
+
+{
+    print "a";
 }
 
-makeCounter((input, second) => {
-  print input;
-  print second;
-});
+var method = (i) => {
+    print i;
+    print a;
+
+    a = a - 1;
+    i = i - 1;
+};
+
+method(8);
+method(8);
+
+var b = method(8);
+
+
+print a;

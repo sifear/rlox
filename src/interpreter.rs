@@ -33,4 +33,10 @@ impl Interpreter {
             }
         }
     }
+
+    pub fn print_ast(&self) {
+        for statement in self.statements.iter() {
+            println!("{}", statement)
+        }
+    }
 }

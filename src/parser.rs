@@ -671,7 +671,6 @@ impl<'a> Parser<'a> {
     }
 
     fn lambda(&mut self) -> Result<Rc<dyn Expr>, ParserError> {
-
         let mut arguments = vec![];
 
         if !self.check(&TokenType::RightParen) {
@@ -714,7 +713,7 @@ impl<'a> Parser<'a> {
             Ok(stmts) => Ok(Rc::new(Literal::FnObject(
                 String::from("name"),
                 Rc::new(FunStmt {
-                    name: String::from("name"),
+                    name: String::from("anonymous"),
                     arguments,
                     body: Rc::new(BlockStmt { stmts }),
                     closure: Rc::new(RefCell::new(Environment::new(
