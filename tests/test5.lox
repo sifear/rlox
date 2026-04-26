@@ -1,0 +1,26 @@
+var i = 10;
+
+fun method(cb) {
+    var i = 888;
+    print i;
+    cb();
+    print i;
+
+    fun nested(i) {
+        i = 900;
+        print i;
+    }
+
+    nested(i);
+
+    print i;
+}
+
+method(() => {
+    print "aaaa";
+    print i;
+    i =  1;
+    print "bbb";
+});
+
+print i;

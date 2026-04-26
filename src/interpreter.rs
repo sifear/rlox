@@ -7,11 +7,15 @@ pub mod runtime_error;
 
 pub struct Interpreter {
     statements: Vec<Rc<dyn Statement>>,
+    pub result_buffer: String,
 }
 
 impl Interpreter {
     pub fn new(statements: Vec<Rc<dyn Statement>>) -> Interpreter {
-        Interpreter { statements }
+        Interpreter {
+            statements,
+            result_buffer: String::from(""),
+        }
     }
 
     pub fn interpret(&mut self) {
@@ -21,7 +25,7 @@ impl Interpreter {
         )));
 
         for stmt in &self.statements {
-            match stmt.evaluate(global_env.clone()) {
+            match stmt.evaluate(global_env.clone(), &mut self.result_buffer) {
                 Ok(value) => {}
                 Err(err) => {
                     println!("{err}")

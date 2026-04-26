@@ -671,6 +671,7 @@ impl<'a> Parser<'a> {
     }
 
     fn lambda(&mut self) -> Result<Rc<dyn Expr>, ParserError> {
+
         let mut arguments = vec![];
 
         if !self.check(&TokenType::RightParen) {

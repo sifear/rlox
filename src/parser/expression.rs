@@ -16,7 +16,11 @@ use crate::is_truthy::is_truthy;
 
 pub trait Expr {
     fn to_string(&self) -> String;
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError>;
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError>;
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -35,7 +39,8 @@ pub struct Ternery {
     pub false_arm: Rc<dyn Expr>,
 }
 
-#[derive(Clone)]
+// #[derive(Clone)]
+#[derive(Debug)]
 pub enum Literal {
     String(String),
     Number(f64),
@@ -44,6 +49,22 @@ pub enum Literal {
     Break,
     Return,
     Null,
+}
+
+impl Clone for Literal {
+    fn clone(&self) -> Literal {
+        match self {
+            Literal::String(s) => Literal::String(String::from(s.as_str())),
+            Literal::Number(n) => Literal::Number(n.clone()),
+            Literal::Boolean(b) => Literal::Boolean(*b),
+            Literal::FnObject(f, fstmt) => {
+                Literal::FnObject(String::from(f.as_str()), fstmt.clone())
+            }
+            Literal::Break => Literal::Break,
+            Literal::Return => Literal::Return,
+            Literal::Null => Literal::Null,
+        }
+    }
 }
 
 pub struct Unary {
@@ -106,7 +127,11 @@ impl Expr for Call {
         format!("<Call expression>")
     }
 
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
         println!("Evaluating call");
         // let calle = self.calle.evaluate(env);
 
@@ -141,18 +166,21 @@ impl Expr for Call {
 
                                 for (index, arg) in fun.arguments.iter().enumerate() {
                                     if index <= self.arguments.len() {
-                                        let input_value =
-                                            self.arguments[index].evaluate(env.clone()).unwrap();
+                                        let input_value = self.arguments[index]
+                                            .evaluate(env.clone(), result_buffer)
+                                            .unwrap();
                                         let input_identifier = arg.lexeme.as_ref().unwrap().clone();
                                         fun.closure
                                             .borrow()
-                                            .define(input_identifier, Some(input_value));
+                                            .define(input_identifier, Some(input_value.clone()));
                                         // let bbb = local_env.get(&"a".to_string());
                                         // println!("{:?}", bbb.unwrap().0);
                                     }
                                 }
 
-                                let a = fun.body.evaluate(fun.closure.clone());
+                                fun.closure.borrow().ls();
+                                
+                                let a = fun.body.evaluate(fun.closure.clone(), result_buffer);
                                 return a;
                             }
                             None => {
@@ -185,7 +213,11 @@ impl Expr for Empty {
         format!("<Discarded expression>")
     }
 
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
         return Ok(Literal::Null);
     }
 
@@ -206,16 +238,20 @@ impl Expr for Ternery {
         return cucc;
     }
 
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
-        let res_of_predicate = self.predicate.evaluate(env.clone());
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
+        let res_of_predicate = self.predicate.evaluate(env.clone(), result_buffer);
         if res_of_predicate.is_err() {
             return res_of_predicate;
         }
 
         if is_truthy(&res_of_predicate.unwrap()) {
-            self.true_arm.evaluate(env.clone())
+            self.true_arm.evaluate(env.clone(), result_buffer)
         } else {
-            self.false_arm.evaluate(env.clone())
+            self.false_arm.evaluate(env.clone(), result_buffer)
         }
     }
 
@@ -238,7 +274,11 @@ impl Expr for Literal {
         }
     }
 
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
         return Ok(self.clone());
     }
 
@@ -252,10 +292,14 @@ impl Expr for Unary {
         format!("({} {})", self.op, self.right)
     }
 
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus => {
-                let ampl = self.right.evaluate(env);
+                let ampl = self.right.evaluate(env, result_buffer);
                 match ampl {
                     Ok(res) => match res {
                         Literal::Number(n) => Ok(Literal::Number(-1.0 * n)),
@@ -265,7 +309,7 @@ impl Expr for Unary {
                 }
             }
             TokenType::Bang => {
-                let a = self.right.evaluate(env);
+                let a = self.right.evaluate(env, result_buffer);
                 match a {
                     Ok(res) => {
                         let ampl = is_truthy(&res);
@@ -290,10 +334,14 @@ impl Expr for Binary {
     fn to_string(&self) -> String {
         format!("({} {} {})", self.op, self.left, self.right)
     }
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
         match self.op.token_type {
             TokenType::Minus | TokenType::Star | TokenType::Slash => {
-                let res = arithmetic(self, env.clone());
+                let res = arithmetic(self, env.clone(), result_buffer);
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -304,7 +352,7 @@ impl Expr for Binary {
                 }
             }
             TokenType::Plus => {
-                let res = plus(&self, env.clone());
+                let res = plus(&self, env.clone(), result_buffer);
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -318,7 +366,7 @@ impl Expr for Binary {
             | TokenType::LessEqual
             | TokenType::Greater
             | TokenType::GreaterEqual => {
-                let res = comparison(self, env);
+                let res = comparison(self, env, result_buffer);
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -329,7 +377,7 @@ impl Expr for Binary {
                 }
             }
             TokenType::BangEqual | TokenType::EqualEqual => {
-                let res = eq_comparison(self, env);
+                let res = eq_comparison(self, env, result_buffer);
                 match res {
                     Ok(value) => Ok(value),
                     Err(runtime_error) => {
@@ -357,8 +405,12 @@ impl Expr for Logical {
         self
     }
 
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
-        let left = self.left.evaluate(env.clone());
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
+        let left = self.left.evaluate(env.clone(), result_buffer);
         if left.is_err() {
             return left;
         }
@@ -374,7 +426,7 @@ impl Expr for Logical {
             }
         }
 
-        self.right.evaluate(env.clone())
+        self.right.evaluate(env.clone(), result_buffer)
     }
 }
 
@@ -393,10 +445,14 @@ impl Expr for Grouping {
         return cucc;
     }
 
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
         self.exprs
             .iter()
-            .map(|a| a.evaluate(env.clone()))
+            .map(|a| a.evaluate(env.clone(), result_buffer))
             .last()
             .unwrap()
     }
@@ -407,7 +463,11 @@ impl Expr for Grouping {
 }
 
 impl Expr for Variable {
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
         match &self.name.lexeme {
             Some(name) => {
                 let a = env.borrow().get(name);
@@ -451,8 +511,12 @@ impl Expr for Variable {
 }
 
 impl Expr for Assign {
-    fn evaluate(&self, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
-        let val = self.value.evaluate(env.clone());
+    fn evaluate(
+        &self,
+        env: Rc<RefCell<Environment>>,
+        result_buffer: &mut String,
+    ) -> Result<Literal, RuntimeError> {
+        let val = self.value.evaluate(env.clone(), result_buffer);
         let _val = match val {
             Ok(v) => v,
             Err(err) => return Err(err),

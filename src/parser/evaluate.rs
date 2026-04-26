@@ -7,12 +7,16 @@ use crate::scanner::token::TokenType;
 
 use super::expression::{Binary, Literal};
 
-pub fn arithmetic(expr: &Binary, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate(env.clone());
+pub fn arithmetic(
+    expr: &Binary,
+    env: Rc<RefCell<Environment>>,
+    result_buffer: &mut String,
+) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env.clone(), result_buffer);
     if left.is_err() {
         return left;
     }
-    let right = expr.right.evaluate(env.clone());
+    let right = expr.right.evaluate(env.clone(), result_buffer);
     if right.is_err() {
         return right;
     }
@@ -50,12 +54,16 @@ pub fn arithmetic(expr: &Binary, env: Rc<RefCell<Environment>>) -> Result<Litera
     }
 }
 
-pub fn plus(expr: &Binary, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate(env.clone());
+pub fn plus(
+    expr: &Binary,
+    env: Rc<RefCell<Environment>>,
+    result_buffer: &mut String,
+) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env.clone(), result_buffer);
     if left.is_err() {
         return left;
     }
-    let right = expr.right.evaluate(env.clone());
+    let right = expr.right.evaluate(env.clone(), result_buffer);
     if right.is_err() {
         return right;
     }
@@ -105,12 +113,16 @@ pub fn plus(expr: &Binary, env: Rc<RefCell<Environment>>) -> Result<Literal, Run
     }
 }
 
-pub fn comparison(expr: &Binary, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate(env.clone());
+pub fn comparison(
+    expr: &Binary,
+    env: Rc<RefCell<Environment>>,
+    result_buffer: &mut String,
+) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env.clone(), result_buffer);
     if left.is_err() {
         return left;
     }
-    let right = expr.right.evaluate(env.clone());
+    let right = expr.right.evaluate(env.clone(), result_buffer);
     if right.is_err() {
         return right;
     }
@@ -142,12 +154,16 @@ pub fn comparison(expr: &Binary, env: Rc<RefCell<Environment>>) -> Result<Litera
     }
 }
 
-pub fn eq_comparison(expr: &Binary, env: Rc<RefCell<Environment>>) -> Result<Literal, RuntimeError> {
-    let left = expr.left.evaluate(env.clone());
+pub fn eq_comparison(
+    expr: &Binary,
+    env: Rc<RefCell<Environment>>,
+    result_buffer: &mut String,
+) -> Result<Literal, RuntimeError> {
+    let left = expr.left.evaluate(env.clone(), result_buffer);
     if left.is_err() {
         return left;
     }
-    let right = expr.right.evaluate(env.clone());
+    let right = expr.right.evaluate(env.clone(), result_buffer);
     if right.is_err() {
         return right;
     }

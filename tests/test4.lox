@@ -1,0 +1,12 @@
+// Test function calls with arguments
+
+fun method(i) {
+    i = "Dani";
+    print i;   
+}
+
+method(1);
+
+var i = 10;
+method(i);
+print i;

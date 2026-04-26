@@ -1,0 +1,20 @@
+// Test to validate that blocks have their own scope
+// where variables can be shadowed
+
+fun method1() {
+    var i = 9;
+
+    print i;
+    print i + 2;
+
+    i = "Dani";
+
+    print i;
+}
+
+var i = 10;
+print i;
+
+method1();
+
+print i;

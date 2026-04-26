@@ -1,8 +1,5 @@
 use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::Rc,
-    time::{SystemTime, UNIX_EPOCH},
+    cell::RefCell, collections::HashMap, fmt, rc::Rc, time::{SystemTime, UNIX_EPOCH}
 };
 
 use crate::parser::{expression::Literal, method::Callable, statement::FunStmt};
@@ -12,6 +9,13 @@ pub struct Environment {
     pub enclosing: Option<Rc<RefCell<Environment>>>,
     pub global_methods: RefCell<HashMap<String, Callable>>,
 }
+
+impl fmt::Debug for Environment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Environment").finish()
+    }
+}
+
 
 impl Environment {
     pub fn new(
@@ -48,11 +52,16 @@ impl Environment {
     }
 
     pub fn define(&self, identifier: String, value: Option<Literal>) {
+        println!("Defining {}", identifier);
         let initialized = value.is_some();
         let _value = match value {
             Some(literal) => literal,
             None => Literal::Null,
         };
+
+        if let Some(a) = self.values.borrow_mut().get(&identifier) {
+            println!("Redefining: {}", identifier);
+        }
 
         self.values
             .borrow_mut()
@@ -74,6 +83,7 @@ impl Environment {
             }
             None => match &self.enclosing {
                 Some(enclosing) => {
+                    println!("Not found, searching enclosing");
                     enclosing.borrow().assign(identifier, value);
 
                     return true;
@@ -93,7 +103,11 @@ impl Environment {
         }
 
         if let Some(enclosing) = &self.enclosing {
+            println!("searching enclosing for {}", identifier);
             return enclosing.borrow().get(identifier);
+        } else {
+            println!("no more enclosing {}", identifier);
+
         }
 
         None
@@ -116,5 +130,14 @@ impl Environment {
         }
 
         None
+    }
+
+    pub fn ls(&self) {
+        println!("Printing env");
+
+        for entry in self.values.borrow().iter() {
+            println!("{}: {:?}", entry.0, entry.1);
+        }
+        println!("Printing env end");
     }
 }

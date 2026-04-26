@@ -1,0 +1,5 @@
+var a = 10;
+var b = "Dani";
+
+print a;
+print b;
