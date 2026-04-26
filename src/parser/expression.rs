@@ -9,7 +9,9 @@ use crate::{
 };
 use core::fmt;
 use core::fmt::Debug;
-use std::{any::Any, borrow::BorrowMut, cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    any::Any, borrow::BorrowMut, cell::RefCell, collections::HashMap, ops::DerefMut, rc::Rc,
+};
 
 use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
 use crate::is_truthy::is_truthy;
@@ -186,9 +188,16 @@ impl Expr for Call {
                                     }
                                 }
 
+                                if fun.name == "anonymous" {
+                                    println!("lambda calling here");
+                                    let mut a = fun.closure.borrow_mut();
+                                    //TODO: find out how to set enclosing env of the closure
+                                    a.set_enclosing(Some(env.clone()));
+                                }
+
                                 println!("calling it here");
-                                env.borrow().ls();
-                                
+                                // env.borrow().ls();
+
                                 let a = fun.body.evaluate(fun.closure.clone(), result_buffer);
                                 return a;
                             }

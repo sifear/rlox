@@ -51,6 +51,10 @@ impl Environment {
         }
     }
 
+    pub fn set_enclosing(&mut self, enclosing: Option<Rc<RefCell<Environment>>>) {
+        self.enclosing = enclosing
+    }
+
     pub fn define(&self, identifier: String, value: Option<Literal>) {
         let initialized = value.is_some();
         let _value = match value {
