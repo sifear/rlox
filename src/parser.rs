@@ -712,7 +712,7 @@ impl<'a> Parser<'a> {
         match body {
             Ok(stmts) => Ok(Rc::new(Literal::FnObject(
                 String::from("name"),
-                Rc::new(FunStmt {
+                Rc::new(RefCell::new(FunStmt {
                     name: String::from("anonymous"),
                     arguments,
                     body: Rc::new(BlockStmt { stmts }),
@@ -720,7 +720,7 @@ impl<'a> Parser<'a> {
                         RefCell::new(HashMap::new()),
                         None,
                     ))),
-                }),
+                })),
             ))),
             Err(err) => return Err(ParserError::new(ParserErrorType::Generic, err.line)),
         }

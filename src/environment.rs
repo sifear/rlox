@@ -2,6 +2,8 @@ use std::{
     cell::RefCell, collections::HashMap, fmt, rc::Rc, time::{SystemTime, UNIX_EPOCH}
 };
 
+use std::ops::{Deref, DerefMut};
+
 use crate::parser::{expression::Literal, method::Callable, statement::FunStmt};
 
 pub struct Environment {
@@ -109,7 +111,7 @@ impl Environment {
         None
     }
 
-    pub fn get_method(&self, identifier: &String) -> Option<Rc<FunStmt>> {
+    pub fn get_method(&self, identifier: &String) -> Option<Rc<RefCell<FunStmt>>> {
         let values = self.values.borrow();
         let res = values.get(identifier);
 

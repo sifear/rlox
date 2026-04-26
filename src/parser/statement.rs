@@ -282,7 +282,7 @@ impl fmt::Display for VarStmt {
             if let Some(literal) = initializer.downcast_ref::<Literal>() {
                 match &literal {
                     Literal::FnObject(name, b) => {
-                        res = write!(f, "\n\tLambda: {}", b);
+                        res = write!(f, "\n\tLambda: {}", b.borrow());
                     }
                     _ => {}
                 }
@@ -313,7 +313,7 @@ impl Statement for FunStmt {
             self.name.clone(),
             Literal::FnObject(
                 self.name.clone(),
-                Rc::new(FunStmt {
+                Rc::new(RefCell::new(FunStmt {
                     arguments: self.arguments.clone(),
                     body: self.body.clone(),
                     name: self.name.clone(),
@@ -321,7 +321,7 @@ impl Statement for FunStmt {
                         RefCell::new(HashMap::new()),
                         Some(env.clone()),
                     ))),
-                }),
+                })),
             ),
         );
 

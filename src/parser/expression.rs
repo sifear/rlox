@@ -57,7 +57,7 @@ pub enum Literal {
     String(String),
     Number(f64),
     Boolean(bool),
-    FnObject(String, Rc<FunStmt>),
+    FnObject(String, Rc<RefCell<FunStmt>>),
     Break,
     Return,
     Null,
@@ -168,19 +168,20 @@ impl Expr for Call {
                         let func = env.borrow().get_method(name);
 
                         match func {
-                            Some(fun) => {
+                            Some(mut fun) => {
                                 // let local_env = Rc::new(RefCell::new(Environment::new(
                                 //     RefCell::new(HashMap::new()),
                                 //     Some(env.clone()),
                                 // )));
 
-                                for (index, arg) in fun.arguments.iter().enumerate() {
+                                for (index, arg) in fun.borrow().arguments.iter().enumerate() {
                                     if index <= self.arguments.len() {
                                         let input_value = self.arguments[index]
                                             .evaluate(env.clone(), result_buffer)
                                             .unwrap();
                                         let input_identifier = arg.lexeme.as_ref().unwrap().clone();
-                                        fun.closure
+                                        fun.borrow()
+                                            .closure
                                             .borrow()
                                             .define(input_identifier, Some(input_value.clone()));
                                         // let bbb = local_env.get(&"a".to_string());
@@ -188,17 +189,21 @@ impl Expr for Call {
                                     }
                                 }
 
-                                if fun.name == "anonymous" {
+                                if fun.borrow().name == "anonymous" {
                                     println!("lambda calling here");
-                                    let mut a = fun.closure.borrow_mut();
-                                    //TODO: find out how to set enclosing env of the closure
-                                    a.set_enclosing(Some(env.clone()));
-                                }
 
+                                    let a = (*fun).borrow_mut();
+                                    let b = a.closure.clone();
+                                    (*b).borrow_mut().set_enclosing(Some(env.clone()));
+
+                                }
                                 println!("calling it here");
                                 // env.borrow().ls();
 
-                                let a = fun.body.evaluate(fun.closure.clone(), result_buffer);
+                                let a = fun
+                                    .borrow()
+                                    .body
+                                    .evaluate(fun.borrow().closure.clone(), result_buffer);
                                 return a;
                             }
                             None => {
