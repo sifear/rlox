@@ -10,7 +10,7 @@ use crate::scanner::token::{Token, TokenType};
 use expression::{Binary, Call, Expr, Unary};
 use statement::{FunStmt, ReturnStmt};
 
-use self::expression::{Assign, Empty, Grouping, Literal, Logical, Ternery, Variable};
+use self::expression::{Assign, Empty, Literal, Logical, Ternery, Variable};
 use self::parser_error::{ParserError, ParserErrorType};
 use self::statement::{
     BlockStmt, BreakStmt, ExprStmt, IfStmt, PrintStmt, Statement, VarStmt, WhileStmt,
@@ -1047,63 +1047,11 @@ impl<'a> Parser<'a> {
             None => {}
         };
 
-        // Grouping from here
-
-        let a = self.grouping();
-        if a.is_err() {
-            let err = a.unwrap_err();
-            return Err(err);
-        } else {
-            let b = a.unwrap();
-            return Result::Ok(b);
-        }
+        return Result::Err(
+                ParserError::new(ParserErrorType::ExpressionExpected, 0)
+        );
     }
 
-    fn grouping(&mut self) -> Result<Rc<Grouping>, ParserError> {
-        match self._match_(&[TokenType::LeftParen]) {
-            Some(a) => {
-                let mut grouping = Grouping { exprs: vec![] };
-                let expr = self.expression();
-                if expr.is_err() {
-                    let err = expr.unwrap_err();
-                    return Err(err);
-                } else {
-                    grouping.exprs.push(expr.unwrap());
-
-                    match self._match_(&[TokenType::Comma]) {
-                        Some(token) => {
-                            let right = self.expression();
-                            if right.is_err() {
-                                let err = right.unwrap_err();
-                                return Err(err);
-                            } else {
-                                grouping.exprs.push(right.unwrap());
-                                let res = self.consume(&TokenType::RightParen);
-                                match res {
-                                    Ok(_) => Result::Ok(Rc::new(grouping)),
-                                    Err(err) => Err(ParserError::new(
-                                        ParserErrorType::ExpressionListExpected,
-                                        err.line,
-                                    )),
-                                }
-                            }
-                        }
-                        None => {
-                            let res = self.consume(&TokenType::RightParen);
-                            match res {
-                                Ok(_) => Result::Ok(Rc::new(grouping)),
-                                Err(error) => Err(error),
-                            }
-                        }
-                    }
-                }
-            }
-            None => {
-                // println!("in grouping");
-                Err(ParserError::new(ParserErrorType::ExpressionExpected, 0))
-            }
-        }
-    }
 
     // Same as _match_ but parse error happen if expectation is not matched
     fn consume(&mut self, expected: &TokenType) -> Result<Token, ParserError> {

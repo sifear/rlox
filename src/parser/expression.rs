@@ -4,13 +4,19 @@ use crate::{
         is_variable::as_variable,
         runtime_error::{RuntimeError, RuntimeErrorType},
     },
-    parser::statement::{FunStmt, Statement},
+    parser::statement::{BlockStmt, FunStmt, Statement},
     scanner::token::{Token, TokenType},
 };
 use core::fmt;
 use core::fmt::Debug;
 use std::{
-    any::Any, borrow::BorrowMut, cell::RefCell, collections::HashMap, ops::DerefMut, rc::Rc,
+    any::Any,
+    borrow::BorrowMut,
+    cell::RefCell,
+    collections::HashMap,
+    fs,
+    ops::{Deref, DerefMut},
+    rc::Rc,
 };
 
 use super::evaluate::{arithmetic, comparison, eq_comparison, plus};
@@ -57,7 +63,7 @@ pub enum Literal {
     String(String),
     Number(f64),
     Boolean(bool),
-    FnObject(String, Rc<RefCell<FunStmt>>),
+    FnObject(String, Rc<BlockStmt>, Rc<RefCell<Environment>>),
     Break,
     Return,
     Null,
@@ -69,8 +75,8 @@ impl Clone for Literal {
             Literal::String(s) => Literal::String(String::from(s.as_str())),
             Literal::Number(n) => Literal::Number(n.clone()),
             Literal::Boolean(b) => Literal::Boolean(*b),
-            Literal::FnObject(f, fstmt) => {
-                Literal::FnObject(String::from(f.as_str()), fstmt.clone())
+            Literal::FnObject(f, fstmt, env) => {
+                Literal::FnObject(String::from(f.as_str()), fstmt.clone(), env.clone())
             }
             Literal::Break => Literal::Break,
             Literal::Return => Literal::Return,
@@ -123,11 +129,6 @@ impl Binary {
     }
 }
 
-#[derive(Debug)]
-pub struct Grouping {
-    pub exprs: Vec<Rc<dyn Expr>>,
-}
-
 impl fmt::Display for dyn Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_string())
@@ -162,17 +163,18 @@ impl Expr for Call {
                         }
                         let c = *(val.function)();
                         let d = c.clone();
-                        return Ok(d);
+
+                        Ok(d)
                     }
                     None => {
-                        let func = env.borrow().get_method(name);
+                        let func: Option<Rc<RefCell<FunStmt>>> = env.borrow().get_method(name);
 
                         match func {
-                            Some(mut fun) => {
-                                // let local_env = Rc::new(RefCell::new(Environment::new(
-                                //     RefCell::new(HashMap::new()),
-                                //     Some(env.clone()),
-                                // )));
+                            Some(fun) => {
+                                let new_closure = Rc::new(RefCell::new(Environment::new(
+                                    RefCell::new(HashMap::new()),
+                                    Some(fun.borrow().closure.clone()),
+                                )));
 
                                 for (index, arg) in fun.borrow().arguments.iter().enumerate() {
                                     if index <= self.arguments.len() {
@@ -180,31 +182,23 @@ impl Expr for Call {
                                             .evaluate(env.clone(), result_buffer)
                                             .unwrap();
                                         let input_identifier = arg.lexeme.as_ref().unwrap().clone();
+                                        println!(
+                                            "defining {:?} for {}",
+                                            input_value, input_identifier
+                                        );
                                         fun.borrow()
                                             .closure
                                             .borrow()
                                             .define(input_identifier, Some(input_value.clone()));
-                                        // let bbb = local_env.get(&"a".to_string());
-                                        // println!("{:?}", bbb.unwrap().0);
                                     }
                                 }
 
-                                if fun.borrow().name == "anonymous" {
-                                    println!("lambda calling here");
+                                let a = (*fun).borrow_mut();
 
-                                    let a = (*fun).borrow_mut();
-                                    let b = a.closure.clone();
-                                    (*b).borrow_mut().set_enclosing(Some(env.clone()));
+                                let b = a.body.evaluate(a.closure.clone(), result_buffer);
+                                //TODO: need to add some env to retuning fnobject? if its returning fnobject literal?
 
-                                }
-                                println!("calling it here");
-                                // env.borrow().ls();
-
-                                let a = fun
-                                    .borrow()
-                                    .body
-                                    .evaluate(fun.borrow().closure.clone(), result_buffer);
-                                return a;
+                                return b;
                             }
                             None => {
                                 return Err(RuntimeError::new(
@@ -291,7 +285,7 @@ impl Expr for Literal {
             Literal::Boolean(true) => String::from("true"),
             Literal::Boolean(false) => String::from("false"),
             Literal::Number(n) => format!("{}", n),
-            Literal::FnObject(a, b) => format!("fn object {}", a),
+            Literal::FnObject(a, b, c) => format!("fn object {}", a),
             Literal::String(str_val) => format!("{}", str_val),
         }
     }
@@ -301,6 +295,15 @@ impl Expr for Literal {
         env: Rc<RefCell<Environment>>,
         result_buffer: &mut String,
     ) -> Result<Literal, RuntimeError> {
+        match self {
+            Literal::FnObject(a, b) => {
+                let mut stmt = (*(*b)).borrow_mut();
+
+                stmt.closure = env.clone();
+            }
+            _ => {}
+        };
+
         return Ok(self.clone());
     }
 
@@ -452,38 +455,6 @@ impl Expr for Logical {
     }
 }
 
-impl Expr for Grouping {
-    fn to_string(&self) -> String {
-        let mut cucc = String::from("(");
-        for (i, expr) in self.exprs.iter().enumerate() {
-            cucc.push_str(&expr.to_string());
-
-            if i < self.exprs.len() - 1 {
-                cucc.push(',');
-            }
-        }
-        cucc.push(')');
-
-        return cucc;
-    }
-
-    fn evaluate(
-        &self,
-        env: Rc<RefCell<Environment>>,
-        result_buffer: &mut String,
-    ) -> Result<Literal, RuntimeError> {
-        self.exprs
-            .iter()
-            .map(|a| a.evaluate(env.clone(), result_buffer))
-            .last()
-            .unwrap()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
 impl Expr for Variable {
     fn evaluate(
         &self,
@@ -507,7 +478,11 @@ impl Expr for Variable {
                     None => {
                         let method = env.borrow().get_method(name);
                         match method {
-                            Some(a) => Ok(Literal::FnObject(String::from(name), a.clone())),
+                            Some(a) => Ok(Literal::FnObject(
+                                String::from(name),
+                                a.borrow().body.clone(),
+                                a.borrow().closure.clone(),
+                            )),
                             None => Err(RuntimeError::new(
                                 RuntimeErrorType::IdentifierNotDefined(String::from(name)),
                                 self.name.line,

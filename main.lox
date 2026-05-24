@@ -1,21 +1,11 @@
-var a = 999;
-
-{
-    print "a";
+fun makeAdder(x) {
+  return (y) => {
+    return x + y;
+  };
 }
 
-var method = (i) => {
-    print i;
-    print a;
+var add5 = makeAdder(5);
+var add10 = makeAdder(10);
 
-    a = a - 1;
-    i = i - 1;
-};
-
-method(8);
-method(8);
-
-var b = method(8);
-
-
-print a;
+print add5(2); // 7
+print add10(2); // 12

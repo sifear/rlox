@@ -6,10 +6,9 @@ use crate::{environment::Environment, is_truthy::is_truthy};
 use super::expression::{Expr, Literal};
 use crate::interpreter::runtime_error::RuntimeError;
 use core::fmt::{self, Debug};
-use std::any::{Any, TypeId};
+use std::any::{Any};
 use std::rc::Rc;
-use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap};
-use std::{iter, mem, result};
+use std::{ cell::RefCell, collections::HashMap};
 
 pub trait Statement: Any + fmt::Display {
     fn evaluate(
