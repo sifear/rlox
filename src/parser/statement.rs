@@ -1,4 +1,4 @@
-use crate::parser::expression::Call;
+use crate::parser::expression::{Call, FnObjectStruct};
 use crate::parser::method::Callable;
 use crate::scanner::token::Token;
 use crate::{environment::Environment, is_truthy::is_truthy};
@@ -6,9 +6,9 @@ use crate::{environment::Environment, is_truthy::is_truthy};
 use super::expression::{Expr, Literal};
 use crate::interpreter::runtime_error::RuntimeError;
 use core::fmt::{self, Debug};
-use std::any::{Any};
+use std::any::Any;
 use std::rc::Rc;
-use std::{ cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap};
 
 pub trait Statement: Any + fmt::Display {
     fn evaluate(
@@ -63,7 +63,6 @@ pub struct FunStmt {
     pub name: String,
     pub arguments: Vec<Token>,
     pub body: Rc<BlockStmt>,
-    pub closure: Rc<RefCell<Environment>>,
 }
 
 pub struct IfStmt {
@@ -125,7 +124,7 @@ impl Statement for BlockStmt {
         let mut last_value = Literal::Null;
         let local_env = Rc::new(RefCell::new(Environment::new(
             RefCell::new(HashMap::new()),
-            Some(env.clone()),
+            RefCell::new(Some(env.clone())),
         )));
 
         for statement in self.stmts.iter() {
@@ -280,8 +279,8 @@ impl fmt::Display for VarStmt {
         if let Some(initializer) = self.initializer.clone() {
             if let Some(literal) = initializer.downcast_ref::<Literal>() {
                 match &literal {
-                    Literal::FnObject(name, b) => {
-                        res = write!(f, "\n\tLambda: {}", b.borrow());
+                    Literal::FnObject(fno) => {
+                        res = write!(f, "\n\tLambda: {}", fno.name);
                     }
                     _ => {}
                 }
@@ -299,29 +298,23 @@ impl Statement for FunStmt {
         result_buffer: &mut String,
     ) -> Result<Literal, RuntimeError> {
         println!("Evaluating funstmt");
-        let closure = Rc::new(RefCell::new(Environment::new(
-            RefCell::new(HashMap::new()),
-            Some(env.clone()),
-        )));
+        // let local_env = Rc::new(RefCell::new(Environment::new(
+        //     RefCell::new(HashMap::new()),
+        //     Some(env.clone()),
+        // )));
 
-        self.arguments.iter().for_each(|a| {
-            closure.borrow().define(a.lexeme.clone().unwrap(), None);
-        });
+        // self.arguments.iter().for_each(|a| {
+        //     local_env.borrow().define(a.lexeme.clone().unwrap(), None);
+        // });
 
         env.borrow().define_method(
             self.name.clone(),
-            Literal::FnObject(
-                self.name.clone(),
-                Rc::new(RefCell::new(FunStmt {
-                    arguments: self.arguments.clone(),
-                    body: self.body.clone(),
-                    name: self.name.clone(),
-                    closure: Rc::new(RefCell::new(Environment::new(
-                        RefCell::new(HashMap::new()),
-                        Some(env.clone()),
-                    ))),
-                })),
-            ),
+            Literal::FnObject(FnObjectStruct {
+                name: self.name.clone(),
+                args: self.arguments.clone(),
+                statements: self.body.clone(),
+                local_env: RefCell::new(None),
+            }),
         );
 
         Ok(Literal::Null)

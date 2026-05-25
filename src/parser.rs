@@ -6,6 +6,7 @@ use std::rc::Rc;
 use crate::environment::Environment;
 use crate::interpreter::is_variable::as_variable;
 use crate::interpreter::runtime_error::{RuntimeError, RuntimeErrorType};
+use crate::parser::expression::FnObjectStruct;
 use crate::scanner::token::{Token, TokenType};
 use expression::{Binary, Call, Expr, Unary};
 use statement::{FunStmt, ReturnStmt};
@@ -574,10 +575,6 @@ impl<'a> Parser<'a> {
                 name: identifier_name,
                 arguments,
                 body: Rc::new(BlockStmt { stmts }),
-                closure: Rc::new(RefCell::new(Environment::new(
-                    RefCell::new(HashMap::new()),
-                    None,
-                ))),
             })),
             Err(err) => return Err(RuntimeError::new(RuntimeErrorType::Unknown, err.line)),
         }
@@ -710,18 +707,12 @@ impl<'a> Parser<'a> {
 
         let body = self.block_stmt();
         match body {
-            Ok(stmts) => Ok(Rc::new(Literal::FnObject(
-                String::from("name"),
-                Rc::new(RefCell::new(FunStmt {
-                    name: String::from("anonymous"),
-                    arguments,
-                    body: Rc::new(BlockStmt { stmts }),
-                    closure: Rc::new(RefCell::new(Environment::new(
-                        RefCell::new(HashMap::new()),
-                        None,
-                    ))),
-                })),
-            ))),
+            Ok(stmts) => Ok(Rc::new(Literal::FnObject(FnObjectStruct {
+                name: "anonymous".to_string(),
+                args: arguments,
+                statements: Rc::new(BlockStmt { stmts }),
+                local_env: RefCell::new(None),
+            }))),
             Err(err) => return Err(ParserError::new(ParserErrorType::Generic, err.line)),
         }
     }
@@ -1047,11 +1038,8 @@ impl<'a> Parser<'a> {
             None => {}
         };
 
-        return Result::Err(
-                ParserError::new(ParserErrorType::ExpressionExpected, 0)
-        );
+        return Result::Err(ParserError::new(ParserErrorType::ExpressionExpected, 0));
     }
-
 
     // Same as _match_ but parse error happen if expectation is not matched
     fn consume(&mut self, expected: &TokenType) -> Result<Token, ParserError> {

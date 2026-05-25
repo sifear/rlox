@@ -21,7 +21,7 @@ impl Interpreter {
     pub fn interpret(&mut self) {
         let global_env = Rc::new(RefCell::new(Environment::new(
             RefCell::new(HashMap::new()),
-            None,
+            RefCell::new(None),
         )));
 
         for stmt in &self.statements {

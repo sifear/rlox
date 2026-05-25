@@ -4,7 +4,10 @@ use crate::{
         is_variable::as_variable,
         runtime_error::{RuntimeError, RuntimeErrorType},
     },
-    parser::statement::{BlockStmt, FunStmt, Statement},
+    parser::{
+        expression::Literal::FnObject,
+        statement::{BlockStmt, FunStmt, Statement},
+    },
     scanner::token::{Token, TokenType},
 };
 use core::fmt;
@@ -63,10 +66,18 @@ pub enum Literal {
     String(String),
     Number(f64),
     Boolean(bool),
-    FnObject(String, Rc<BlockStmt>, Rc<RefCell<Environment>>),
+    FnObject(FnObjectStruct),
     Break,
     Return,
     Null,
+}
+
+#[derive(Debug, Clone)]
+pub struct FnObjectStruct {
+    pub name: String,
+    pub args: Vec<Token>,
+    pub statements: Rc<BlockStmt>,
+    pub local_env: RefCell<Option<Rc<RefCell<Environment>>>>,
 }
 
 impl Clone for Literal {
@@ -75,9 +86,7 @@ impl Clone for Literal {
             Literal::String(s) => Literal::String(String::from(s.as_str())),
             Literal::Number(n) => Literal::Number(n.clone()),
             Literal::Boolean(b) => Literal::Boolean(*b),
-            Literal::FnObject(f, fstmt, env) => {
-                Literal::FnObject(String::from(f.as_str()), fstmt.clone(), env.clone())
-            }
+            Literal::FnObject(f) => Literal::FnObject((*f).clone()),
             Literal::Break => Literal::Break,
             Literal::Return => Literal::Return,
             Literal::Null => Literal::Null,
@@ -167,16 +176,18 @@ impl Expr for Call {
                         Ok(d)
                     }
                     None => {
-                        let func: Option<Rc<RefCell<FunStmt>>> = env.borrow().get_method(name);
+                        println!("getting method with name: {}", name);
+                        let mut func: Option<FnObjectStruct> = env.borrow().get_method(name);
 
-                        match func {
+                        match &mut func {
                             Some(fun) => {
-                                let new_closure = Rc::new(RefCell::new(Environment::new(
+                                println!("creating env");
+                                let local_env = Rc::new(RefCell::new(Environment::new(
                                     RefCell::new(HashMap::new()),
-                                    Some(fun.borrow().closure.clone()),
+                                    RefCell::new(Some(env.clone())),
                                 )));
 
-                                for (index, arg) in fun.borrow().arguments.iter().enumerate() {
+                                for (index, arg) in fun.args.iter().enumerate() {
                                     if index <= self.arguments.len() {
                                         let input_value = self.arguments[index]
                                             .evaluate(env.clone(), result_buffer)
@@ -186,16 +197,32 @@ impl Expr for Call {
                                             "defining {:?} for {}",
                                             input_value, input_identifier
                                         );
-                                        fun.borrow()
-                                            .closure
+
+                                        local_env
                                             .borrow()
                                             .define(input_identifier, Some(input_value.clone()));
                                     }
                                 }
 
-                                let a = (*fun).borrow_mut();
+                                println!("before call");
+                                local_env.borrow().ls(0);
 
-                                let b = a.body.evaluate(a.closure.clone(), result_buffer);
+                                //                 if let Some(a) = aaa.as_ref() {
+                                //     println!("thjere is an env alkready, set stuff");
+                                //     (*(*a)).borrow_mut().enclosing = RefCell::new(Some(local_env.clone()));
+                                //     a.borrow().ls();
+                                // } else {
+                                //     *aaa = Some(local_env.clone());
+
+                                let mut bbbb = fun.local_env.borrow_mut();
+
+                                if let Some(a) = bbbb.as_ref() {
+                                } else {
+                                    bbbb.replace(local_env.clone());
+                                }
+
+                                let b = fun.statements.evaluate(local_env.clone(), result_buffer);
+
                                 //TODO: need to add some env to retuning fnobject? if its returning fnobject literal?
 
                                 return b;
@@ -285,7 +312,7 @@ impl Expr for Literal {
             Literal::Boolean(true) => String::from("true"),
             Literal::Boolean(false) => String::from("false"),
             Literal::Number(n) => format!("{}", n),
-            Literal::FnObject(a, b, c) => format!("fn object {}", a),
+            Literal::FnObject(f) => format!("fn object {}", f.name),
             Literal::String(str_val) => format!("{}", str_val),
         }
     }
@@ -296,13 +323,34 @@ impl Expr for Literal {
         result_buffer: &mut String,
     ) -> Result<Literal, RuntimeError> {
         match self {
-            Literal::FnObject(a, b) => {
-                let mut stmt = (*(*b)).borrow_mut();
+            FnObject(f) => {
+                println!("Evaluating literal fn object");
+                let mut local_values = HashMap::new();
 
-                stmt.closure = env.clone();
+                let mut current_l = env.clone();
+
+                loop {
+                    let next = {
+                        let current_level = current_l.borrow();
+                        let values = current_level.values.clone();
+                        let idk = values.borrow();
+                        idk.iter().for_each(|e| {
+                            println!("copying values {}", e.0.clone());
+                            local_values.insert(e.0.clone(), e.1.clone());
+                        });
+
+                        let idkk = current_level.enclosing.borrow();
+                        idkk.clone()
+                    };
+
+                    match next {
+                        Some(a) => current_l = a,
+                        None => break,
+                    }
+                }
             }
             _ => {}
-        };
+        }
 
         return Ok(self.clone());
     }
@@ -478,11 +526,7 @@ impl Expr for Variable {
                     None => {
                         let method = env.borrow().get_method(name);
                         match method {
-                            Some(a) => Ok(Literal::FnObject(
-                                String::from(name),
-                                a.borrow().body.clone(),
-                                a.borrow().closure.clone(),
-                            )),
+                            Some(a) => Ok(Literal::FnObject(a)),
                             None => Err(RuntimeError::new(
                                 RuntimeErrorType::IdentifierNotDefined(String::from(name)),
                                 self.name.line,

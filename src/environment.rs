@@ -1,14 +1,22 @@
 use std::{
-    cell::RefCell, collections::HashMap, fmt, rc::Rc, time::{SystemTime, UNIX_EPOCH}
+    cell::RefCell,
+    collections::HashMap,
+    fmt,
+    rc::Rc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use std::ops::{Deref, DerefMut};
 
-use crate::parser::{expression::Literal, method::Callable, statement::FunStmt};
+use crate::parser::{
+    expression::{FnObjectStruct, Literal},
+    method::Callable,
+    statement::FunStmt,
+};
 
 pub struct Environment {
     pub values: RefCell<HashMap<String, (Literal, bool)>>,
-    pub enclosing: Option<Rc<RefCell<Environment>>>,
+    pub enclosing: RefCell<Option<Rc<RefCell<Environment>>>>,
     pub global_methods: RefCell<HashMap<String, Callable>>,
 }
 
@@ -18,11 +26,10 @@ impl fmt::Debug for Environment {
     }
 }
 
-
 impl Environment {
     pub fn new(
         _values: RefCell<HashMap<String, (Literal, bool)>>,
-        _enclosing: Option<Rc<RefCell<Environment>>>,
+        _enclosing: RefCell<Option<Rc<RefCell<Environment>>>>,
     ) -> Environment {
         let global_methods: RefCell<HashMap<String, Callable>> = RefCell::new(HashMap::new());
 
@@ -53,10 +60,6 @@ impl Environment {
         }
     }
 
-    pub fn set_enclosing(&mut self, enclosing: Option<Rc<RefCell<Environment>>>) {
-        self.enclosing = enclosing
-    }
-
     pub fn define(&self, identifier: String, value: Option<Literal>) {
         let initialized = value.is_some();
         let _value = match value {
@@ -82,7 +85,7 @@ impl Environment {
 
                 true
             }
-            None => match &self.enclosing {
+            None => match self.enclosing.borrow().as_ref() {
                 Some(enclosing) => {
                     enclosing.borrow().assign(identifier, value);
 
@@ -102,40 +105,56 @@ impl Environment {
             None => {}
         }
 
-        if let Some(enclosing) = &self.enclosing {
+        if let Some(enclosing) = &self.enclosing.borrow().as_ref() {
             return enclosing.borrow().get(identifier);
         } else {
-
         }
 
         None
     }
 
-    pub fn get_method(&self, identifier: &String) -> Option<Rc<RefCell<FunStmt>>> {
+    pub fn get_method(&self, identifier: &String) -> Option<FnObjectStruct> {
         let values = self.values.borrow();
         let res = values.get(identifier);
 
         match res {
             Some(func) => match &func.0 {
-                Literal::FnObject(name, fn_obj) => return Some(fn_obj.clone()),
+                Literal::FnObject(f) => {
+                    return Some(FnObjectStruct {
+                        name: f.name.clone(),
+                        args: f.args.clone(),
+                        statements: f.statements.clone(),
+                        local_env: f.local_env.clone(),
+                    })
+                }
                 _ => {}
             },
             None => {}
         }
 
-        if let Some(enclosing) = &self.enclosing {
+        if let Some(enclosing) = &self.enclosing.borrow().as_ref() {
             return enclosing.borrow().get_method(identifier);
         }
 
         None
     }
 
-    pub fn ls(&self) {
-        println!("Printing env");
+    pub fn ls(&self, depth: usize) {
+        let tabs = "\t".repeat(depth);
+        println!("{}Printing env", tabs);
 
         for entry in self.values.borrow().iter() {
-            println!("{}: {:?}", entry.0, entry.1);
+            println!("{}{}: {:?}", tabs, entry.0, entry.1);
         }
-        println!("Printing env end");
+
+        match &self.enclosing.borrow().as_ref() {
+            Some(enc) => {
+                println!("{}Enclosing:", tabs);
+                enc.borrow().ls(depth + 1);
+            }
+            None => {}
+        }
+
+        println!("{}Printing env end", tabs);
     }
 }
