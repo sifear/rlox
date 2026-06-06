@@ -181,11 +181,9 @@ impl Expr for Call {
 
                         match &mut func {
                             Some(fun) => {
-                                println!("creating env");
-                                let local_env = Rc::new(RefCell::new(Environment::new(
-                                    RefCell::new(HashMap::new()),
-                                    RefCell::new(Some(env.clone())),
-                                )));
+                                println!("get env of function object literal");
+                                let local_env = fun.local_env.borrow();
+                                let _local_env = local_env.as_ref().unwrap().clone();
 
                                 for (index, arg) in fun.args.iter().enumerate() {
                                     if index <= self.arguments.len() {
@@ -198,32 +196,15 @@ impl Expr for Call {
                                             input_value, input_identifier
                                         );
 
-                                        local_env
-                                            .borrow()
-                                            .define(input_identifier, Some(input_value.clone()));
+                                        _local_env.borrow().define(input_identifier, Some(input_value.clone()));
                                     }
                                 }
 
-                                println!("before call");
-                                local_env.borrow().ls(0);
+                                println!("caling fn object with:");
+                                _local_env.borrow().ls(0);
 
-                                //                 if let Some(a) = aaa.as_ref() {
-                                //     println!("thjere is an env alkready, set stuff");
-                                //     (*(*a)).borrow_mut().enclosing = RefCell::new(Some(local_env.clone()));
-                                //     a.borrow().ls();
-                                // } else {
-                                //     *aaa = Some(local_env.clone());
 
-                                let mut bbbb = fun.local_env.borrow_mut();
-
-                                if let Some(a) = bbbb.as_ref() {
-                                } else {
-                                    bbbb.replace(local_env.clone());
-                                }
-
-                                let b = fun.statements.evaluate(local_env.clone(), result_buffer);
-
-                                //TODO: need to add some env to retuning fnobject? if its returning fnobject literal?
+                                let b = fun.statements.evaluate(_local_env, result_buffer);
 
                                 return b;
                             }
@@ -325,29 +306,17 @@ impl Expr for Literal {
         match self {
             FnObject(f) => {
                 println!("Evaluating literal fn object");
-                let mut local_values = HashMap::new();
 
-                let mut current_l = env.clone();
+                let local_env = Rc::new(RefCell::new(Environment::new(
+                    RefCell::new(HashMap::new()),
+                    RefCell::new(Some(env.clone())),
+                )));
 
-                loop {
-                    let next = {
-                        let current_level = current_l.borrow();
-                        let values = current_level.values.clone();
-                        let idk = values.borrow();
-                        idk.iter().for_each(|e| {
-                            println!("copying values {}", e.0.clone());
-                            local_values.insert(e.0.clone(), e.1.clone());
-                        });
+                f.args.iter().for_each(|a| {
+                    local_env.borrow().define(a.lexeme.clone().unwrap(), None);
+                });
 
-                        let idkk = current_level.enclosing.borrow();
-                        idkk.clone()
-                    };
-
-                    match next {
-                        Some(a) => current_l = a,
-                        None => break,
-                    }
-                }
+                f.local_env.replace(Some(local_env.clone()));
             }
             _ => {}
         }

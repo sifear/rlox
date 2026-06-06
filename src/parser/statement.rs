@@ -297,10 +297,10 @@ impl Statement for FunStmt {
         env: Rc<RefCell<Environment>>,
         result_buffer: &mut String,
     ) -> Result<Literal, RuntimeError> {
-        println!("Evaluating funstmt");
+        // println!("Evaluating funstmt");
         // let local_env = Rc::new(RefCell::new(Environment::new(
         //     RefCell::new(HashMap::new()),
-        //     Some(env.clone()),
+        //     RefCell::new(Some(env.clone())),
         // )));
 
         // self.arguments.iter().for_each(|a| {
@@ -313,7 +313,8 @@ impl Statement for FunStmt {
                 name: self.name.clone(),
                 args: self.arguments.clone(),
                 statements: self.body.clone(),
-                local_env: RefCell::new(None),
+                // local_env: RefCell::new(Some(local_env)),
+                local_env: RefCell::new(None)
             }),
         );
 
